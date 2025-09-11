@@ -1,0 +1,39 @@
+<svg width="200" height="120" viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
+  <!-- Land/Seed Pod Base -->
+  <defs>
+    <linearGradient id="landGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2E7D32;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Base curved shape (land/seed pod) -->
+  <path d="M 40 80 Q 100 60 160 80 L 160 100 Q 100 90 40 100 Z" 
+        fill="url(#landGradient)" />
+  
+  <!-- White circle in center of base -->
+  <circle cx="100" cy="85" r="8" fill="white" />
+  
+  <!-- Plant leaves -->
+  <path d="M 90 70 Q 85 60 90 50 Q 95 60 90 70" 
+        fill="#4CAF50" />
+  <path d="M 110 70 Q 115 60 110 50 Q 105 60 110 70" 
+        fill="#4CAF50" />
+  
+  <!-- Plus sign icon -->
+  <circle cx="140" cy="45" r="12" fill="#2E7D32" />
+  <line x1="140" y1="39" x2="140" y2="51" 
+        stroke="white" stroke-width="2" stroke-linecap="round" />
+  <line x1="134" y1="45" x2="146" y2="45" 
+        stroke="white" stroke-width="2" stroke-linecap="round" />
+  
+  <!-- Text "Smart Farmer" -->
+  <text x="100" y="115" 
+        font-family="Arial, sans-serif" 
+        font-size="16" 
+        font-weight="bold" 
+        text-anchor="middle" 
+        fill="#424242">
+    Smart Farmer
+  </text>
+</svg> 
