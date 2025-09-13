@@ -11,12 +11,12 @@ export const Shop = () => {
   });
 
   const navigate = useNavigate();
-
   const { AddToCart } = UseCartcontext();
 
   const handleonclick = (id) => {
     navigate(`/product/${id}`);
   };
+
   const handleaddbtnclick = (product) => {
     try {
       AddToCart(product);

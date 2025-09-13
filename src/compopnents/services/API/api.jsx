@@ -1,18 +1,22 @@
 import axios from "axios";
 
-
 const API = axios.create({
-  baseURL: import.meta.env.VITE_BASE_URL,
+  baseURL: "http://localhost:5000/api",
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-API.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  console.log("Final request headers:", config.headers); 
-  return config;
-});
-
+API.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    console.log("Final request headers:", config.headers);
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 export default API;

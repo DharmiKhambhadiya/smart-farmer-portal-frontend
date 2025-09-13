@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { VerifyOtp, ResendOtp } from "../compopnents/services/API/userapi";
 import { useMutation } from "@tanstack/react-query";
+import { VerifyOtp, ResendOtp } from "../compopnents/services/API/userapi";
+import { UseCartcontext } from "../compopnents/context/cartcontext";
 import toast from "react-hot-toast";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -9,11 +10,26 @@ export const VerifyOTP = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const email = location.state?.email;
+  const { MergeCart } = UseCartcontext();
 
   const { mutate, isLoading, isError, error } = useMutation({
     mutationFn: VerifyOtp,
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       toast.success("Email verified successfully!");
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          id: data.user?.id || data.user?._id,
+          email: data.user?.email,
+          role: data.user?.role,
+        })
+      );
+      // Merge cart after OTP verification
+      try {
+        await MergeCart();
+      } catch (err) {
+        toast.error("Failed to sync cart after verification");
+      }
       navigate("/login");
     },
     onError: (error) => {
@@ -33,18 +49,15 @@ export const VerifyOTP = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
     if (!email) {
       toast.error("Email not found. Please go back and sign up again.");
       navigate("/signup");
       return;
     }
-
     if (!otp || otp.length !== 6) {
       toast.error("Please enter a valid 6-digit OTP");
       return;
     }
-
     mutate({ email, otp });
   };
 
@@ -55,7 +68,7 @@ export const VerifyOTP = () => {
 
   const handleResendOtp = () => {
     if (email) {
-      resendOtp(email);
+      resendOtp({ email });
     }
   };
 
@@ -64,7 +77,7 @@ export const VerifyOTP = () => {
       <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded shadow text-center">
         <h2 className="text-2xl font-bold mb-4 text-red-600">Error</h2>
         <p className="mb-4">Email not found. Please sign up first.</p>
-        <button 
+        <button
           onClick={() => navigate("/signup")}
           className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
         >
@@ -77,14 +90,12 @@ export const VerifyOTP = () => {
   return (
     <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded shadow">
       <h2 className="text-2xl font-bold text-center mb-6">Verify Your Email</h2>
-      
       <div className="text-center mb-6">
         <p className="text-gray-600 mb-2">
           We've sent a 6-digit verification code to:
         </p>
         <p className="font-semibold text-blue-600">{email}</p>
       </div>
-
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-gray-700 font-medium mb-2 text-center">
@@ -100,7 +111,6 @@ export const VerifyOTP = () => {
             autoComplete="one-time-code"
           />
         </div>
-
         <button
           type="submit"
           disabled={isLoading || otp.length !== 6}
@@ -112,18 +122,16 @@ export const VerifyOTP = () => {
         >
           {isLoading ? "Verifying..." : "Verify Email"}
         </button>
-
         {isError && (
           <p className="text-red-600 text-center">
             {error?.response?.data?.message || "Verification failed"}
           </p>
         )}
       </form>
-
       <div className="mt-6 text-center space-y-2">
         <p className="text-gray-600 text-sm">
           Didn't receive the code?{" "}
-          <button 
+          <button
             onClick={handleResendOtp}
             disabled={isResending}
             className="text-blue-600 hover:underline disabled:text-gray-400"
@@ -133,7 +141,7 @@ export const VerifyOTP = () => {
         </p>
         <p className="text-gray-600 text-sm">
           Or{" "}
-          <button 
+          <button
             onClick={() => navigate("/signup")}
             className="text-blue-600 hover:underline"
           >

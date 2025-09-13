@@ -1,12 +1,9 @@
 import API from "./api";
 
-export const Createorder = async () => {
-  return await API.post("/order/create");
+export const CreateOrderAPI = async (payload) => {
+  return await API.post("/order/create", payload);
 };
 
-//Get orders for loggedin user
-
-export const getOrder = async () => {
+export const GetMyOrdersAPI = async () => {
   return await API.get("/order/myorders");
 };
-

@@ -1,32 +1,55 @@
-// cartapi.js
 import API from "./api";
 
-// Add to cart
-export const addCart = async (productId, quantity = 1) => {
-  const res = await API.post("/cart/add", { productId, quantity });
-  return res.data; // Changed from res.data.data to match backend
-};
-
-// Update quantity
-export const updateCart = async (productId, quantity) => {
-  const res = await API.put("/cart/update-quantity", { productId, quantity });
-  return res.data; // Changed
-};
-
-// Get cart
 export const getCart = async () => {
-  const res = await API.get("/cart/mycart");
-  return res.data; // Backend returns { success: true, data: { items, subtotal } }
+  try {
+    const res = await API.get("/cart/mycart");
+    console.log("Get cart API response:", res.data);
+    return res.data;
+  } catch (err) {
+    console.error("Failed to fetch cart:", err.response?.data || err.message);
+    throw err;
+  }
 };
 
-// Merge cart
+export const addCart = async (productId, quantity = 1) => {
+  try {
+    const res = await API.post("/cart/add", { productId, quantity });
+    return res.data;
+  } catch (err) {
+    throw err;
+  }
+};
+
+export const updateCart = async (productId, quantity) => {
+  try {
+    const res = await API.put("/cart/update-quantity", { productId, quantity });
+    console.log("Update cart API response:", res.data);
+    return res.data;
+  } catch (err) {
+    console.error("Update cart failed:", err.response?.data || err.message);
+    throw err;
+  }
+};
+
 export const mergeCart = async (items) => {
-  const res = await API.post("/cart/mergecart", { items });
-  return res.data;
+  try {
+    console.log("Merge cart request payload:", items);
+    const res = await API.post("/cart/mergecart", { items });
+    console.log("Merge cart API response:", res.data);
+    return res.data;
+  } catch (err) {
+    console.error("Merge cart failed:", err.response?.data || err.message);
+    throw err;
+  }
 };
 
-// Delete cart item
 export const deleteCart = async (productId) => {
-  const res = await API.delete(`/cart/${productId}`);
-  return res.data;
+  try {
+    const res = await API.delete(`/cart/${productId}`);
+    console.log("Delete cart API response:", res.data);
+    return res.data;
+  } catch (err) {
+    console.error("Delete cart failed:", err.response?.data || err.message);
+    throw err;
+  }
 };

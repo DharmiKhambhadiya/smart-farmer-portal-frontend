@@ -13,7 +13,6 @@ export const Signup = () => {
   const { mutate, isLoading, isError, isSuccess, error } = useMutation({
     mutationFn: Register,
     onSuccess: (data) => {
-      console.log("Signup Success", data);
       toast.success(
         "OTP sent to your email! Please verify to complete registration."
       );

@@ -7,6 +7,7 @@ import {
   mergeCart,
   updateCart,
 } from "../services/API/cartapi";
+
 export const Cartcontext = createContext();
 
 export const CartcontextProvider = ({ children }) => {
@@ -15,11 +16,11 @@ export const CartcontextProvider = ({ children }) => {
     return stored ? JSON.parse(stored) : [];
   });
 
-  // Helper to format API cart items
-  const formatCartItems = (cartData) => {
-    // cartData is now { items: [...], subtotal: ... }
-    return (cartData.items || []).map((item) => ({
-      productid: item.product._id || item.product.toString(),
+  // Format API cart items to match frontend structure
+  const formatCartItems = (cartResponse) => {
+    const items = cartResponse?.data?.items || cartResponse?.items || [];
+    return items.map((item) => ({
+      productid: item.product?._id?.toString() || item.product.toString(),
       name: item.name,
       price: item.price,
       image: item.image,
@@ -28,29 +29,36 @@ export const CartcontextProvider = ({ children }) => {
     }));
   };
 
-  // Load cart from API on mount if logged in (sync local with DB)
+  // Sync cart on mount for logged-in users
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
       const syncCart = async () => {
         try {
           const res = await getCart();
-          if (res?.items) {
-            setcartitems(formatCartItems(res.items));
-            localStorage.setItem(
-              "cartitems",
-              JSON.stringify(formatCartItems(res.items))
-            );
+          console.log("Sync cart response:", res);
+          if (res?.success && (res?.data?.items || res?.items)) {
+            const formattedItems = formatCartItems(res);
+            setcartitems(formattedItems);
+            localStorage.setItem("cartitems", JSON.stringify(formattedItems));
+          } else {
+            console.warn("No items in cart response:", res);
+            setcartitems([]);
+            localStorage.setItem("cartitems", JSON.stringify([]));
           }
         } catch (err) {
-          console.error("Failed to sync cart on mount:", err);
+          console.error(
+            "Failed to sync cart on mount:",
+            err.response?.data || err.message
+          );
+          toast.error("Failed to load cart");
         }
       };
       syncCart();
     }
   }, []);
 
-  // -----------------------------Add to cart---------------------------
+  // Add to cart
   const AddToCart = async (product) => {
     if (!product?._id) {
       console.error("Product ID missing:", product);
@@ -59,20 +67,24 @@ export const CartcontextProvider = ({ children }) => {
     }
 
     const token = localStorage.getItem("token");
-    console.log("Adding to cart:", product._id, "Logged in:", !!token); // Debug log
+    console.log("Adding to cart:", product._id, "Logged in:", !!token);
 
     if (token) {
       try {
-        const updatedCart = await addCart(product._id, 1);
-        console.log("API add success:", updatedCart);
-        setcartitems(formatCartItems(updatedCart.data || updatedCart)); // Handle both structures
+        const res = await addCart(product._id, 1);
+        console.log("API add success:", res);
+        const formattedItems = formatCartItems(res);
+        setcartitems(formattedItems);
+        localStorage.setItem("cartitems", JSON.stringify(formattedItems));
         toast.success("Product added to Cart");
       } catch (error) {
-        console.error("API add to cart failed:", error);
+        console.error(
+          "API add to cart failed:",
+          error.response?.data || error.message
+        );
         toast.error("Failed to add to cart");
       }
     } else {
-      // Guest → Save to localStorage
       const existingItem = cartitems.find(
         (item) => item.productid === product._id
       );
@@ -103,13 +115,10 @@ export const CartcontextProvider = ({ children }) => {
       setcartitems(newCart);
       localStorage.setItem("cartitems", JSON.stringify(newCart));
       toast.success("Product added to Cart");
-
-      // Optional: Prepare for merge when user logs in
-      console.log("Local cart updated:", newCart);
     }
   };
 
-  //------------------------ Increase quantity---------------------------
+  // Increase quantity
   const increaseQuantity = async (productId) => {
     const item = cartitems.find((i) => i.productid === productId);
     if (!item) {
@@ -122,13 +131,16 @@ export const CartcontextProvider = ({ children }) => {
     if (token) {
       try {
         const res = await updateCart(productId, item.quantity + 1);
-        setcartitems(formatCartItems(res.items));
-        localStorage.setItem(
-          "cartitems",
-          JSON.stringify(formatCartItems(res.items))
-        );
+        console.log("Increase quantity response:", res);
+        const formattedItems = formatCartItems(res);
+        setcartitems(formattedItems);
+        localStorage.setItem("cartitems", JSON.stringify(formattedItems));
+        toast.success("Quantity increased");
       } catch (err) {
-        console.error("Failed to increase quantity:", err);
+        console.error(
+          "Failed to increase quantity:",
+          err.response?.data || err.message
+        );
         toast.error("Failed to update quantity");
       }
     } else {
@@ -143,14 +155,17 @@ export const CartcontextProvider = ({ children }) => {
       );
       setcartitems(updatedCart);
       localStorage.setItem("cartitems", JSON.stringify(updatedCart));
+      toast.success("Quantity increased");
     }
   };
 
-  //---------------------- Decrease quantity--------------------
+  // Decrease quantity
   const decreaseQuantity = async (productId) => {
     const item = cartitems.find((i) => i.productid === productId);
     if (!item || item.quantity <= 1) {
-      if (item?.quantity <= 1) RemoveFromCart(productId); // Auto-remove if qty=1
+      if (item?.quantity <= 1) {
+        await RemoveFromCart(productId);
+      }
       return;
     }
 
@@ -159,13 +174,16 @@ export const CartcontextProvider = ({ children }) => {
     if (token) {
       try {
         const res = await updateCart(productId, item.quantity - 1);
-        setcartitems(formatCartItems(res.items));
-        localStorage.setItem(
-          "cartitems",
-          JSON.stringify(formatCartItems(res.items))
-        );
+        console.log("Decrease quantity response:", res);
+        const formattedItems = formatCartItems(res);
+        setcartitems(formattedItems);
+        localStorage.setItem("cartitems", JSON.stringify(formattedItems));
+        toast.success("Quantity decreased");
       } catch (err) {
-        console.error("Failed to decrease quantity:", err);
+        console.error(
+          "Failed to decrease quantity:",
+          err.response?.data || err.message
+        );
         toast.error("Failed to update quantity");
       }
     } else {
@@ -180,26 +198,27 @@ export const CartcontextProvider = ({ children }) => {
       );
       setcartitems(updatedCart);
       localStorage.setItem("cartitems", JSON.stringify(updatedCart));
+      toast.success("Quantity decreased");
     }
   };
 
-  //--------------------------------- Remove from cart-------------------------
+  // Remove from cart
   const RemoveFromCart = async (productId) => {
     const token = localStorage.getItem("token");
 
     if (token) {
       try {
         const res = await deleteCart(productId);
-        if (res?.items) {
-          setcartitems(formatCartItems(res.items));
-          localStorage.setItem(
-            "cartitems",
-            JSON.stringify(formatCartItems(res.items))
-          );
-        }
+        console.log("Remove cart response:", res);
+        const formattedItems = formatCartItems(res);
+        setcartitems(formattedItems);
+        localStorage.setItem("cartitems", JSON.stringify(formattedItems));
         toast.success("Item removed from cart");
       } catch (err) {
-        console.error("Remove from cart failed:", err);
+        console.error(
+          "Remove from cart failed:",
+          err.response?.data || err.message
+        );
         toast.error("Failed to remove item");
       }
     } else {
@@ -212,29 +231,33 @@ export const CartcontextProvider = ({ children }) => {
     }
   };
 
-  //-------------------------------- Merge cart-------------------------------
+  // Merge cart
   const MergeCart = async () => {
     const token = localStorage.getItem("token");
-    if (!token || cartitems.length === 0) return;
+    if (!token || cartitems.length === 0) {
+      console.warn("MergeCart skipped: No token or empty cart");
+      return;
+    }
 
     try {
       const formattedItems = cartitems.map((item) => ({
         productId: item.productid,
         quantity: item.quantity,
       }));
+      console.log("Merging cart with items:", formattedItems);
       const res = await mergeCart(formattedItems);
-      if (res?.items) {
-        setcartitems(formatCartItems(res.items));
-        localStorage.removeItem("cartitems");
-        toast.success("Cart merged successfully");
-      }
+      console.log("Merge cart response:", res);
+      const formattedItemsMerged = formatCartItems(res);
+      setcartitems(formattedItemsMerged);
+      localStorage.removeItem("cartitems");
+      toast.success("Cart merged successfully");
     } catch (err) {
-      console.error("Cart merge failed:", err);
+      console.error("Cart merge failed:", err.response?.data || err.message);
       toast.error("Failed to merge cart");
     }
   };
 
-  // -------------------------------Clear cart----------------------------
+  // Clear cart
   const ClearCart = () => {
     setcartitems([]);
     localStorage.removeItem("cartitems");

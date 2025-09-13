@@ -1,6 +1,4 @@
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
-import { Toaster } from "react-hot-toast";
-
 import { Applayout } from "./compopnents/UI/Applayout";
 import { Home } from "./pages/home";
 import { About } from "./pages/about";
@@ -16,6 +14,7 @@ import { ChangePassword } from "./pages/changepass";
 import { ResetPasswordPage } from "./compopnents/ResetLink";
 import { Account } from "./pages/account";
 import { Ordershipping } from "./pages/Ordershipping";
+import ProtectedRoute from "./compopnents/protectedroute";
 
 function App() {
   const layout = createBrowserRouter([
@@ -26,7 +25,6 @@ function App() {
         { path: "/", element: <Home /> },
         { path: "/about", element: <About /> },
         { path: "/about/:id", element: <Singlecrop /> },
-
         { path: "/shop", element: <Shop /> },
         { path: "/product/:id", element: <Singleproduct /> },
         { path: "/contact", element: <Contact /> },
@@ -37,17 +35,19 @@ function App() {
         { path: "/changepassword", element: <ChangePassword /> },
         { path: "/reset-password/:token", element: <ResetPasswordPage /> },
         { path: "/account", element: <Account /> },
-        { path: "/shipping", element: <Ordershipping /> },
+        {
+          path: "/shipping",
+          element: (
+            <ProtectedRoute>
+              <Ordershipping />
+            </ProtectedRoute>
+          ),
+        },
       ],
     },
   ]);
 
-  return (
-    <>
-      <Toaster />
-      <RouterProvider router={layout} />
-    </>
-  );
+  return <RouterProvider router={layout} />;
 }
 
 export default App;

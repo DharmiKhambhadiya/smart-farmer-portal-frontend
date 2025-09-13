@@ -11,8 +11,13 @@ export const getProducts = async () => {
 };
 
 export const getProduct = async (id) => {
-  const res = await API.get(`/product/${id}`);
-  return res.data.data;
+  try {
+    const res = await API.get(`/product/${id}`);
+    return res.data.data;
+  } catch (err) {
+    console.error("Failed to fetch product:", err);
+    throw err;
+  }
 };
 
 export const searchProducts = async () => {

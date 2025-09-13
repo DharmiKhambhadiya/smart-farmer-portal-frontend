@@ -1,118 +1,123 @@
-import { useState } from "react";
-import { Signin, ResetLinkpass } from "../compopnents/services/API/userapi";
 import { useMutation } from "@tanstack/react-query";
-import { Validation } from "../compopnents/services/validation/uservalidation";
-import { toast } from "react-hot-toast";
+import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
+import { LoginAPI } from "../compopnents/services/API/userapi";
 import { UseCartcontext } from "../compopnents/context/cartcontext";
+import toast from "react-hot-toast";
 
 export const Login = () => {
-  const [formdata, setformdata] = useState({ email: "", password: "" });
   const navigate = useNavigate();
   const { MergeCart } = UseCartcontext();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm();
 
-  //------sign api------
-  const { mutate } = useMutation({
-    mutationFn: Signin,
+  const mutation = useMutation({
+    mutationFn: LoginAPI,
     onSuccess: async (data) => {
-      console.log("Login Successfully", data);
+      if (data?.token) {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem(
+          "user",
+          JSON.stringify({
+            id: data.user?.id || data.user?._id,
+            email: data.user?.email,
+            role: data.user?.role,
+          })
+        );
+        toast.success("Login successful!");
 
-      const token = data.data.token;
-      localStorage.setItem("token", token);
-
-      const localCart = JSON.parse(localStorage.getItem("cartitems")) || [];
-      if (localCart.length > 0) {
+        // Merge cart after login
         try {
           await MergeCart();
-          toast.success("Login successful & cart merged 🛒");
         } catch (err) {
-          console.error("Cart merge failed:", err);
-          toast.error("Login successful but cart merge failed");
+          toast.error("Failed to sync cart after login");
         }
+
+        navigate("/shop");
       } else {
-        toast.success("Login successful 🎉");
+        toast.error("Login failed: No token received");
       }
-
-      navigate("/");
     },
-
     onError: (error) => {
-      console.log(error.response?.data || error.message);
       toast.error(
-        error.response?.data?.message || error.message || "Login Failed"
+        "Error: " +
+          (error.response?.data?.message ||
+            "Login failed. Please check your credentials.")
       );
     },
   });
 
-  const handlechange = (e) => {
-    setformdata({ ...formdata, [e.target.name]: e.target.value });
+  const handlesubmit = (data) => {
+    mutation.mutate(data);
   };
 
-  const handlesubmit = async (e) => {
-    e.preventDefault();
-    try {
-      Validation(formdata);
-      mutate(formdata);
-    } catch (err) {
-      toast.error(err.message);
-    }
-  };
-  const handleResetClick = async () => {
-    if (formdata.email) {
-      try {
-        await ResetLinkpass(formdata.email);
-        toast.success("Reset password link sent to your email 📧");
-      } catch (err) {
-        toast.error(
-          err.response?.data?.message || "Failed to send reset link "
-        );
-      }
-    } else {
-      toast.error("Enter your email first");
-    }
-  };
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded shadow">
-      <h2 className="text-2xl font-semibold text-center mb-4">Login</h2>
-      <form onSubmit={handlesubmit} className="space-y-4">
-        <input
-          type="email"
-          name="email"
-          value={formdata.email}
-          onChange={handlechange}
-          placeholder="Enter your email"
-          className="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
-        <input
-          type="password"
-          name="password"
-          value={formdata.password}
-          onChange={handlechange}
-          placeholder="Enter your password"
-          className="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
-        <button
-          type="submit"
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded transition"
-        >
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
+      <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-md">
+        <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">
           Login
-        </button>
-
-        <p>
-          Don't have an account?
-          <a href="/signup" className="text-blue-700 underline">
-            Signup
-          </a>
-        </p>
-
-        <button
-          type="button"
-          onClick={handleResetClick}
-          className="text-sm text-blue-700 underline mt-2"
-        >
-          Forgot Password?
-        </button>
-      </form>
+        </h1>
+        <form onSubmit={handleSubmit(handlesubmit)} className="space-y-4">
+          <div>
+            <input
+              type="email"
+              placeholder="Enter your email"
+              autoComplete="email"
+              {...register("email", { required: "Email is required" })}
+              className="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+            {errors.email && (
+              <p className="text-red-500 text-sm mt-1">
+                {errors.email.message}
+              </p>
+            )}
+          </div>
+          <div>
+            <input
+              type="password"
+              placeholder="Enter your password"
+              autoComplete="current-password"
+              {...register("password", { required: "Password is required" })}
+              className="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+            {errors.password && (
+              <p className="text-red-500 text-sm mt-1">
+                {errors.password.message}
+              </p>
+            )}
+          </div>
+          <button
+            type="submit"
+            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+            disabled={mutation.isLoading}
+          >
+            {mutation.isLoading ? "Logging in..." : "Login"}
+          </button>
+        </form>
+        <div className="mt-4 text-center">
+          <p className="text-gray-600 text-sm">
+            Need an account?{" "}
+            <button
+              onClick={() => navigate("/signup")}
+              className="text-blue-600 hover:underline"
+            >
+              Sign Up
+            </button>
+          </p>
+          <p className="text-gray-600 text-sm">
+            Forgot password?{" "}
+            <button
+              onClick={() => navigate("/reset-password")}
+              className="text-blue-600 hover:underline"
+            >
+              Reset Password
+            </button>
+          </p>
+        </div>
+      </div>
     </div>
   );
 };

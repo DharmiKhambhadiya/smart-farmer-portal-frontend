@@ -6,13 +6,23 @@ export const Register = async (userdata) => {
   return await API.post("/auth/register", userdata);
 };
 //verify otp
-export const VerifyOtp = async (otpdata) => {
-  return await API.post("/auth/verify-otp", otpdata);
+export const VerifyOtp = async ({ email, otp }) => {
+  try {
+    const res = await API.post("/auth/verify-otp", { email, otp });
+    return res.data; // { message: "Email verified successfully", user: { id, email, role } }
+  } catch (err) {
+    throw err;
+  }
 };
 
 //resend otp
-export const ResendOtp = async (email) => {
-  return await API.post("/auth/resend-otp", { email });
+export const ResendOtp = async ({ email }) => {
+  try {
+    const res = await API.post("/auth/resend-otp", { email });
+    return res.data; // { message: "New OTP sent to email" }
+  } catch (err) {
+    throw err;
+  }
 };
 
 //getprofile
@@ -22,9 +32,19 @@ export const Getprofile = async () => {
   return data.user;
 };
 
+//update profile
+export const updateProfile = async (userdata) => {
+  return await API.put("/auth/profile", userdata);
+};
+
 //sign in
-export const Signin = async (logindata) => {
-  return await API.post("/auth/login", logindata);
+export const LoginAPI = async (data) => {
+  try {
+    const res = await API.post("/auth/login", data);
+    return res.data; // { message: "Login successful", token, user: { id, email, role } }
+  } catch (err) {
+    throw err;
+  }
 };
 
 //changepass

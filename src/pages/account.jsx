@@ -1,102 +1,89 @@
-import { useQuery } from "@tanstack/react-query";
-import { Getprofile } from "../compopnents/services/API/userapi";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ChangePassword } from "../compopnents/Account/changepassword";
+import { Orders } from "../compopnents/Account/order";
+import { Profile } from "../compopnents/Account/profile";
+import { MyAddress } from "../compopnents/Account/myaddress"; // ✅ new import
 
 export const Account = () => {
-  const [form, setForm] = useState({
-    firstName: "",
-    email: "",
-    lastName: "",
-    phoneNumber: "",
-    city: "",
-    address: "",
-  });
+  const [activeTab, setActiveTab] = useState("profile");
+  const navigate = useNavigate();
 
-  const handleinputchange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/login");
   };
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["userProfile"],
-    queryFn: Getprofile,
-    retry: (failureCount, error) => {
-      if (error?.response?.status === 401) return false;
-      return failureCount < 3;
-    },
-  });
-
-  useEffect(() => {
-    if (data) {
-      setForm({
-        firstName: data.firstName || "",
-        email: data.email || "",
-        lastName: data.lastName || "",
-        phoneNumber: data.phoneNumber || "",
-        city: data.address?.city || "",
-        address: data.address?.address || "",
-      });
-    }
-  }, [data]);
-
-  if (isLoading) return <p className="text-center">Loading...</p>;
-  if (error)
-    return <p className="text-center text-red-500">Error loading profile</p>;
 
   return (
-    <div className="max-w-4xl mx-auto p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div className="bg-white p-6 rounded-xl shadow-md space-y-4">
-        <h2 className="text-xl font-semibold">Personal Information</h2>
-        <input
-          type="text"
-          name="firstName"
-          placeholder="First Name"
-          value={form.firstName}
-          className="w-full p-2 border rounded bg-gray-100"
-          onChange={handleinputchange}
-        />
-        <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          value={form.email}
-          className="w-full p-2 border rounded bg-gray-100"
-          onChange={handleinputchange}
-        />
-        <input
-          type="text"
-          name="lastName"
-          placeholder="Last Name"
-          value={form.lastName}
-          className="w-full p-2 border rounded bg-gray-100"
-          onChange={handleinputchange}
-        />
-        <input
-          type="text"
-          name="phoneNumber"
-          placeholder="Phone Number"
-          value={form.phoneNumber}
-          className="w-full p-2 border rounded bg-gray-100"
-          onChange={handleinputchange}
-        />
+    <div className="flex max-w-6xl mx-auto mt-10 p-6 bg-white shadow-md rounded-xl">
+      {/* Sidebar */}
+      <div className="w-1/4 border-r pr-4">
+        <ul className="space-y-3">
+          <li>
+            <button
+              onClick={() => setActiveTab("profile")}
+              className={`w-full text-left p-3 rounded-lg ${
+                activeTab === "profile"
+                  ? "bg-green-500 text-white"
+                  : "bg-gray-100 hover:bg-gray-200"
+              }`}
+            >
+              👤 Profile
+            </button>
+          </li>
+          <li>
+            <button
+              onClick={() => setActiveTab("orders")}
+              className={`w-full text-left p-3 rounded-lg ${
+                activeTab === "orders"
+                  ? "bg-green-500 text-white"
+                  : "bg-gray-100 hover:bg-gray-200"
+              }`}
+            >
+              🛒 My Orders
+            </button>
+          </li>
+          <li>
+            <button
+              onClick={() => setActiveTab("address")}
+              className={`w-full text-left p-3 rounded-lg ${
+                activeTab === "address"
+                  ? "bg-green-500 text-white"
+                  : "bg-gray-100 hover:bg-gray-200"
+              }`}
+            >
+              📍 My Address
+            </button>
+          </li>
+          <li>
+            <button
+              onClick={() => setActiveTab("password")}
+              className={`w-full text-left p-3 rounded-lg ${
+                activeTab === "password"
+                  ? "bg-green-500 text-white"
+                  : "bg-gray-100 hover:bg-gray-200"
+              }`}
+            >
+              🔑 Change Password
+            </button>
+          </li>
+          <li>
+            <button
+              onClick={handleLogout}
+              className="w-full text-left p-3 rounded-lg bg-red-500 text-white hover:bg-red-600"
+            >
+              🚪 Logout
+            </button>
+          </li>
+        </ul>
       </div>
 
-      <div className="bg-white p-6 rounded-xl shadow-md space-y-4">
-        <h2 className="text-xl font-semibold">Shipping Address</h2>
-        <input
-          type="text"
-          name="city"
-          placeholder="City"
-          value={form.city}
-          className="w-full p-2 border rounded bg-gray-100"
-          onChange={handleinputchange}
-        />
-        <input
-          type="text"
-          name="address"
-          placeholder="Address"
-          value={form.address}
-          className="w-full p-2 border rounded bg-gray-100"
-          onChange={handleinputchange}
-        />
+      {/* Main Content */}
+      <div className="w-3/4 pl-6">
+        {activeTab === "profile" && <Profile />}
+        {activeTab === "orders" && <Orders />}
+        {activeTab === "address" && <MyAddress />}
+        {activeTab === "password" && <ChangePassword />}
       </div>
     </div>
   );

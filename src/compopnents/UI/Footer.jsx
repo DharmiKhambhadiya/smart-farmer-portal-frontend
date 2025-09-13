@@ -1,15 +1,23 @@
 import { MdLocationPin } from "react-icons/md";
 import { FaYoutube, FaInstagram, FaTwitter, FaFacebook } from "react-icons/fa";
+// import logo from "../assets/417377e7-4a6e-4440-89fa-8ae5f8c915ba.png"; // adjust path if needed
 
 export const Footer = () => {
   return (
     <footer className="bg-[#5D4037] text-[#f3e9dc] px-6 py-10">
       <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
-        {/* Contact Info */}
+        {/* Contact Info with Logo */}
         <div>
-          <h4 className="text-3xl font-bold text-white italic tracking-wide mb-4">
-            Smart Farmer
-          </h4>
+          <div className="flex items-center gap-2 mb-4">
+            <img
+              src="/images/logo.png"
+              alt="Smart Farmer Logo"
+              className="w-10 h-10 object-contain"
+            />
+            <h4 className="text-3xl font-bold text-white italic tracking-wide">
+              Smart Farmer
+            </h4>
+          </div>
           <p className="flex items-center gap-2 mb-2">
             <MdLocationPin className="text-[#ffd369] w-6 h-6" />
             <span>
