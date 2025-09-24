@@ -19,7 +19,7 @@ export const VerifyOtp = async ({ email, otp }) => {
 export const ResendOtp = async ({ email }) => {
   try {
     const res = await API.post("/auth/resend-otp", { email });
-    return res.data; // { message: "New OTP sent to email" }
+    return res.data;
   } catch (err) {
     throw err;
   }
@@ -60,4 +60,31 @@ export const ResetLinkpass = async (email) => {
 //resetpassword
 export const ResetPassword = async (token, passworddata) => {
   return await API.post(`/auth/resetpassword/${token}`, passworddata);
+};
+
+//----------Admin API call----------
+// Get All Users (Admin)
+export const admingetuser = async () => {
+  const res = await API.get("/auth/admin/users");
+  return res.data.users; // Return the users array
+};
+
+// Update User (Admin)
+export const adminUpdateUser = async (userId, userdata) => {
+  const res = await API.put(`/auth/admin/user/${userId}`, userdata);
+  return res.data; // { message: "User updated successfully", user }
+};
+
+// Delete User (Admin)
+export const adminDeleteUser = async (userId) => {
+  const res = await API.delete(`/auth/admin/user/${userId}`);
+  return res.data; // { message: "User deleted successfully" }
+};
+
+// Search & Paginate Users (Admin)
+export const adminSearchUsers = async ({ page, limit, search = "" }) => {
+  const res = await API.get(
+    `/auth/admin/users/search?page=${page}&limit=${limit}&search=${search}`
+  );
+  return res.data; // { success, page, totalPages, totalUsers, users }
 };

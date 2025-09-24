@@ -1,16 +1,26 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ChangePassword } from "../compopnents/Account/changepassword";
 import { Orders } from "../compopnents/Account/order";
 import { Profile } from "../compopnents/Account/profile";
-import { MyAddress } from "../compopnents/Account/myaddress"; // ✅ new import
+import { MyAddress } from "../compopnents/Account/myaddress";
 
 export const Account = () => {
   const [activeTab, setActiveTab] = useState("profile");
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Handle tab selection from query parameters
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get("tab");
+    if (tab && ["profile", "orders", "address", "password"].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [location]);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    localStorage.removeItem("token"); // Clear authentication token
     navigate("/login");
   };
 

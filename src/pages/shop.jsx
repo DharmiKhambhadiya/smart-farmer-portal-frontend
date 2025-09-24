@@ -20,7 +20,7 @@ export const Shop = () => {
   const handleaddbtnclick = (product) => {
     try {
       AddToCart(product);
-      toast.success("Product added to Cart");
+      // toast.success("Product added to Cart");
     } catch (error) {
       console.log("error ", error);
       toast.error("Can't add to Cart");

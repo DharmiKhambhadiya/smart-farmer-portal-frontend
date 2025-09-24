@@ -37,7 +37,7 @@ export const CartcontextProvider = ({ children }) => {
         try {
           const res = await getCart();
           console.log("Sync cart response:", res);
-          if (res?.success && (res?.data?.items || res?.items)) {
+          if (res?.data?.items || res?.items) {
             const formattedItems = formatCartItems(res);
             setcartitems(formattedItems);
             localStorage.setItem("cartitems", JSON.stringify(formattedItems));
@@ -51,7 +51,7 @@ export const CartcontextProvider = ({ children }) => {
             "Failed to sync cart on mount:",
             err.response?.data || err.message
           );
-          toast.error("Failed to load cart");
+          // Ignore 404 handled upstream; only toast other errors
         }
       };
       syncCart();

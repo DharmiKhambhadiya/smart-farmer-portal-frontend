@@ -3,12 +3,22 @@ import { useForm } from "react-hook-form";
 import DataTable from "react-data-table-component";
 import { UseCartcontext } from "../compopnents/context/cartcontext";
 import toast from "react-hot-toast";
+import Breadcrumbs from "../compopnents/UI/Breadcrumbs";
 
 export const Cart = () => {
   const { cartitems, RemoveFromCart, increaseQuantity, decreaseQuantity } =
     UseCartcontext();
   const navigate = useNavigate();
-  const { register, handleSubmit, setValue } = useForm();
+  {
+    /* ✅ Breadcrumbs */
+  }
+  <Breadcrumbs
+    paths={[
+      { label: "Home", href: "/" },
+      { label: "Shop", href: "/shop" },
+      { label: "Cart", href: "/cart" },
+    ]}
+  />;
 
   const columns = [
     {
@@ -132,7 +142,7 @@ export const Cart = () => {
 
   return (
     <div className="p-6 md:p-10 bg-gray-50 min-h-screen">
-      <h1 className="text-3xl font-bold mb-6 text-gray-800">🛒 Your Cart</h1>
+      <h1 className="text-3xl font-bold mb-6 text-gray-800"> Your Cart</h1>
       {cartitems.length === 0 ? (
         <div className="bg-white p-8 rounded-2xl shadow-md text-center">
           <p className="text-gray-600 text-lg">Your cart is empty</p>

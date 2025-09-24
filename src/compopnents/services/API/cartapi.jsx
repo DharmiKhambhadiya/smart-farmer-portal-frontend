@@ -6,6 +6,10 @@ export const getCart = async () => {
     console.log("Get cart API response:", res.data);
     return res.data;
   } catch (err) {
+    if (err.response?.status === 404) {
+      // No cart yet — treat as empty cart instead of hard error
+      return { success: false, data: { items: [], subtotal: 0 } };
+    }
     console.error("Failed to fetch cart:", err.response?.data || err.message);
     throw err;
   }

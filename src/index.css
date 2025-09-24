@@ -1,1 +1,20 @@
 @import "tailwindcss";
+
+/* Optional: Add smooth scrollbar for sidebar */
+aside {
+  scrollbar-width: thin;
+  scrollbar-color: #e5e7eb #f9fafb;
+}
+
+aside::-webkit-scrollbar {
+  width: 6px;
+}
+
+aside::-webkit-scrollbar-track {
+  background: #f9fafb;
+}
+
+aside::-webkit-scrollbar-thumb {
+  background-color: #e5e7eb;
+  border-radius: 10px;
+}
