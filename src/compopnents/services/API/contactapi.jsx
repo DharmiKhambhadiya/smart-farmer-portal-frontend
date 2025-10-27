@@ -2,24 +2,23 @@
 import API from "./api";
 
 export const Newrequest = async (formdata) => {
-  return await API.post("/contact/create", formdata);
+  console.log("📤 Sending contact request:", formdata);
+  const response = await API.post("/contact/create", formdata);
+  return response.data;
 };
 
-//------Admin API-----
-//-----getallrequest-----
+// Admin API
 export const getRequests = async () => {
   const res = await API.get("/contact/getAllrequest");
   return res.data;
 };
 
-//-----getrequestbyid---- (Fixed path to match router)
 export const getRequest = async (requestid) => {
-  const res = await API.get(`/contact/getRequestById/${requestid}`); // Fixed: getRequestById
+  const res = await API.get(`/contact/getRequestById/${requestid}`);
   return res.data;
 };
 
-
-//------Reply to Request----
 export const replyRequest = async (requestid, formdata) => {
-  return await API.put(`/contact/reply/${requestid}`, formdata);
+  const response = await API.put(`/contact/reply/${requestid}`, formdata);
+  return response.data;
 };

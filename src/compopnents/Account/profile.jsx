@@ -1,17 +1,14 @@
+// src/components/Account/profile.jsx
 import { useForm } from "react-hook-form";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Getprofile, updateProfile } from "../services/API/userapi";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { toast } from "react-toastify";
+import { updateProfile } from "../services/API/userapi";
+import { useUserContext } from "../context/Usercontext";
 
 export const Profile = () => {
   const queryClient = useQueryClient();
-
-  // Fetch user profile
-  const { data: user, isLoading } = useQuery({
-    queryKey: ["profile"],
-    queryFn: Getprofile,
-  });
+  const { userData, setUserData, isLoading } = useUserContext();
 
   // React Hook Form setup
   const {
@@ -28,23 +25,18 @@ export const Profile = () => {
     },
   });
 
-  // Reset form when user data is fetched
-  useEffect(() => {
-    if (user) {
-      reset({
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
-        phoneNumber: user.phoneNumber || "",
-        city: user.city || "",
-      });
-    }
-  }, [user, reset]);
-
   // Mutation for updating profile
   const mutation = useMutation({
     mutationFn: updateProfile,
-    onSuccess: () => {
+    onSuccess: (updatedData) => {
       queryClient.invalidateQueries(["profile"]);
+      setUserData((prev) => ({
+        ...prev,
+        firstName: updatedData.firstName || prev.firstName,
+        lastName: updatedData.lastName || prev.lastName,
+        phoneNumber: updatedData.phoneNumber || prev.phoneNumber,
+        city: updatedData.city || prev.city,
+      }));
       toast.success("✅ Profile updated successfully!");
     },
     onError: (error) => {
@@ -54,6 +46,18 @@ export const Profile = () => {
       );
     },
   });
+
+  // Reset form when user data is fetched
+  useEffect(() => {
+    if (userData) {
+      reset({
+        firstName: userData.firstName || "",
+        lastName: userData.lastName || "",
+        phoneNumber: userData.phoneNumber || "",
+        city: userData.city || "",
+      });
+    }
+  }, [userData, reset]);
 
   const onSubmit = (data) => {
     mutation.mutate(data);

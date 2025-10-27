@@ -54,11 +54,35 @@ export const updateCrop = async (id, formData) => {
   }
 };
 
+// ... (other API functions remain unchanged)
+
+// Delete crop by ID
+// Delete crop by ID
 export const deleteCrop = async (id) => {
   try {
+    if (!id) {
+      throw new Error("Crop ID is required");
+    }
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      throw new Error("Invalid crop ID format");
+    }
+    console.log("Attempting to delete crop with ID:", id);
     const response = await API.delete(`/crop/${id}`);
+    console.log("Delete crop response:", {
+      status: response.status,
+      data: response.data,
+    });
     return response.data;
   } catch (error) {
-    throw error.response?.data || error.message;
+    console.error("Delete crop error:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    throw (
+      error.response?.data?.message || error.message || "Failed to delete crop"
+    );
   }
 };
+
+// ... (other API functions)

@@ -1,19 +1,23 @@
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify"; // Use react-toastify for consistency
-import { CreateOrderAPI } from "../compopnents/services/API/orderapi"; // Fixed typo in path
-import { updateProfile } from "../compopnents/services/API/userapi"; // Import updateProfile
-import { UseCartcontext } from "../compopnents/context/cartcontext"; // Fixed typo in path
+import { toast } from "react-hot-toast";
+import { CreateOrderAPI } from "../compopnents/services/API/orderapi";
+import { updateProfile } from "../compopnents/services/API/userapi";
+import { UseCartcontext } from "../compopnents/context/cartcontext";
+import { useUserContext } from "../compopnents/context/Usercontext";
+import { useEffect } from "react";
 
 export const Ordershipping = () => {
   const { cartitems, ClearCart } = UseCartcontext();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { userData, setUserData, isLoading } = useUserContext();
 
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm({
     defaultValues: {
@@ -24,67 +28,90 @@ export const Ordershipping = () => {
       street: "",
       state: "",
       pincode: "",
-      country: "", // Added country field for consistency
+      country: "",
     },
   });
 
-  // Calculate order totals
+  useEffect(() => {
+    console.log("Ordershipping userData:", userData); // Debug log
+    if (userData) {
+      reset({
+        firstName: userData.firstName || "",
+        lastName: userData.lastName || "",
+        phoneNumber: userData.phoneNumber || "",
+        city: userData.city || "",
+        street: userData.address?.street || "",
+        state: userData.address?.state || "",
+        pincode: userData.address?.pincode || "",
+        country: userData.address?.country || "",
+      });
+    }
+  }, [userData, reset]);
+
   const subtotal = cartitems.reduce((acc, item) => acc + item.totalPrice, 0);
   const shippingcharges = subtotal > 1000 ? 0 : 50;
-  const total = subtotal + shippingcharges;
+  const tax = subtotal * 0.08; // 8% tax
+  const total = subtotal + shippingcharges + tax;
 
-  // Mutation to update user profile
   const profileMutation = useMutation({
     mutationFn: updateProfile,
-    onSuccess: () => {
-      queryClient.invalidateQueries(["profile"]); // Invalidate profile cache
-      toast.success("Profile updated successfully!");
+    onSuccess: (updatedData) => {
+      console.log("Profile updated:", updatedData); // Debug log
+      queryClient.invalidateQueries(["profile"]);
+      setUserData((prev) => ({
+        ...prev,
+        firstName: updatedData.firstName || prev.firstName,
+        lastName: updatedData.lastName || prev.lastName,
+        phoneNumber: updatedData.phoneNumber || prev.phoneNumber,
+        city: updatedData.city || prev.city,
+        address: updatedData.address || prev.address,
+      }));
+      toast.success("Profile updated successfully!", { duration: 3000 });
     },
     onError: (error) => {
+      console.error("Profile update error:", error); // Debug log
       toast.error(
-        "Error: " +
-          (error?.response?.data?.message || "Failed to update profile")
+        `❌ ${error?.response?.data?.message || "Failed to update profile"}`,
+        { duration: 5000 }
       );
     },
   });
 
-  // Mutation to create order
   const orderMutation = useMutation({
     mutationFn: CreateOrderAPI,
-    onSuccess: () => {
-      toast.success("Order placed successfully!");
+    onSuccess: (data, variables) => {
+      toast.success("Order created successfully!", { duration: 3000 });
       ClearCart();
-      navigate("/account?tab=orders"); // Redirect to Orders tab
+      // Redirect to payment page with order details
+      navigate("/payment", {
+        state: {
+          order: {
+            shippingdetails: variables.shippingdetails,
+            orderitems: variables.orderitems,
+            subtotal,
+            shippingcharges,
+            tax,
+            total,
+            orderId: data.data._id, // Assuming API returns order ID
+          },
+        },
+      });
     },
     onError: (error) => {
       console.error("Order creation failed:", error.response?.data || error);
-      toast.error("Failed to place order. Try again.");
+      toast.error("❌ Failed to create order. Try again.", { duration: 5000 });
     },
   });
 
   const onSubmit = (data) => {
-    // Update user profile
-    profileMutation.mutate({
-      firstName: data.firstName,
-      lastName: data.lastName || "",
-      phoneNumber: data.phoneNumber,
-      city: data.city,
-      address: {
-        street: data.street,
-        city: data.city,
-        state: data.state,
-        pincode: data.pincode,
-        country: data.country,
-      },
-    });
-
-    // Create order
-    const payload = {
-      shippingdetails: {
+    console.log("Ordershipping form data:", data); // Debug log
+    const loadingToast = toast.loading("Processing order...");
+    profileMutation.mutate(
+      {
         firstName: data.firstName,
         lastName: data.lastName || "",
-        city: data.city,
         phoneNumber: data.phoneNumber,
+        city: data.city,
         address: {
           street: data.street,
           city: data.city,
@@ -93,23 +120,56 @@ export const Ordershipping = () => {
           country: data.country,
         },
       },
-      orderitems: cartitems.map((item) => ({
-        productId: item.productId,
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-        image: item.image, // Include image if required by GetMyOrdersAPI
-      })),
-      subtotal,
-      shippingcharges,
-      total,
-    };
-    orderMutation.mutate(payload);
+      {
+        onSuccess: () => {
+          const payload = {
+            shippingdetails: {
+              firstName: data.firstName,
+              lastName: data.lastName || "",
+              city: data.city,
+              phoneNumber: data.phoneNumber,
+              address: {
+                street: data.street,
+                city: data.city,
+                state: data.state,
+                pincode: data.pincode,
+                country: data.country,
+              },
+            },
+            orderitems: cartitems.map((item) => ({
+              productId: item.productId,
+              name: item.name,
+              quantity: item.quantity,
+              price: item.price,
+              image: item.image,
+            })),
+            subtotal,
+            shippingcharges,
+            tax,
+            total,
+          };
+          orderMutation.mutate(payload, {
+            onSettled: () => toast.dismiss(loadingToast),
+          });
+        },
+        onError: () => toast.dismiss(loadingToast),
+      }
+    );
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-emerald-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading shipping details...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 py-8 px-4">
-      {/* Decorative background elements */}
       <div className="absolute top-10 left-10 w-32 h-32 bg-green-200 rounded-full opacity-30 blur-xl"></div>
       <div className="absolute bottom-10 right-10 w-40 h-40 bg-blue-200 rounded-full opacity-30 blur-xl"></div>
 
@@ -119,7 +179,7 @@ export const Ordershipping = () => {
             Shipping Details
           </h1>
           <p className="text-gray-600">
-            Enter your details to complete your order
+            Enter your details to proceed to payment
           </p>
         </div>
 
@@ -127,14 +187,13 @@ export const Ordershipping = () => {
           onSubmit={handleSubmit(onSubmit)}
           className="bg-white rounded-2xl shadow-xl p-8 space-y-6 border border-gray-100"
         >
-          {/* Name Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label
                 htmlFor="firstName"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                First Name
+                First Name *
               </label>
               <div className="relative">
                 <input
@@ -144,7 +203,7 @@ export const Ordershipping = () => {
                     required: "First name is required",
                   })}
                   placeholder="John"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-800 bg-gray-50"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-gray-800 bg-gray-50"
                 />
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -194,7 +253,7 @@ export const Ordershipping = () => {
                   type="text"
                   {...register("lastName")}
                   placeholder="Doe"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-800 bg-gray-50"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-gray-800 bg-gray-50"
                 />
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -214,13 +273,12 @@ export const Ordershipping = () => {
             </div>
           </div>
 
-          {/* Phone Number */}
           <div>
             <label
               htmlFor="phoneNumber"
               className="block text-sm font-medium text-gray-700 mb-1"
             >
-              Phone Number
+              Phone Number *
             </label>
             <div className="relative">
               <input
@@ -234,7 +292,7 @@ export const Ordershipping = () => {
                   },
                 })}
                 placeholder="+91 98765 43210"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-800 bg-gray-50"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-gray-800 bg-gray-50"
               />
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -272,13 +330,12 @@ export const Ordershipping = () => {
             )}
           </div>
 
-          {/* City */}
           <div>
             <label
               htmlFor="city"
               className="block text-sm font-medium text-gray-700 mb-1"
             >
-              City
+              City *
             </label>
             <div className="relative">
               <input
@@ -286,7 +343,7 @@ export const Ordershipping = () => {
                 type="text"
                 {...register("city", { required: "City is required" })}
                 placeholder="New Delhi"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-800 bg-gray-50"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-gray-800 bg-gray-50"
               />
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -330,20 +387,19 @@ export const Ordershipping = () => {
             )}
           </div>
 
-          {/* Street */}
           <div>
             <label
               htmlFor="street"
               className="block text-sm font-medium text-gray-700 mb-1"
             >
-              Street Address
+              Street Address *
             </label>
             <input
               id="street"
               type="text"
               {...register("street", { required: "Street is required" })}
               placeholder="123 Green Farm Lane"
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-800 bg-gray-50"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-gray-800 bg-gray-50"
             />
             {errors.street && (
               <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
@@ -366,21 +422,20 @@ export const Ordershipping = () => {
             )}
           </div>
 
-          {/* State & Pincode & Country */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label
                 htmlFor="state"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                State
+                State *
               </label>
               <input
                 id="state"
                 type="text"
                 {...register("state", { required: "State is required" })}
                 placeholder="Uttar Pradesh"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-800 bg-gray-50"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-gray-800 bg-gray-50"
               />
               {errors.state && (
                 <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
@@ -407,7 +462,7 @@ export const Ordershipping = () => {
                 htmlFor="pincode"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Pincode
+                Pincode *
               </label>
               <input
                 id="pincode"
@@ -420,7 +475,7 @@ export const Ordershipping = () => {
                   },
                 })}
                 placeholder="110001"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-800 bg-gray-50"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-gray-800 bg-gray-50"
               />
               {errors.pincode && (
                 <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
@@ -447,14 +502,14 @@ export const Ordershipping = () => {
                 htmlFor="country"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Country
+                Country *
               </label>
               <input
                 id="country"
                 type="text"
                 {...register("country", { required: "Country is required" })}
                 placeholder="India"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-800 bg-gray-50"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-gray-800 bg-gray-50"
               />
               {errors.country && (
                 <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
@@ -478,7 +533,6 @@ export const Ordershipping = () => {
             </div>
           </div>
 
-          {/* Order Summary */}
           <div className="p-4 bg-gray-50 rounded-xl">
             <h3 className="text-lg font-semibold text-gray-800 mb-2">
               Order Summary
@@ -487,19 +541,19 @@ export const Ordershipping = () => {
             <p className="text-gray-600">
               Shipping: ₹{shippingcharges.toFixed(2)}
             </p>
+            <p className="text-gray-600">Tax: ₹{tax.toFixed(2)}</p>
             <p className="font-bold text-lg text-gray-800">
               Total: ₹{total.toFixed(2)}
             </p>
           </div>
 
-          {/* Submit Button */}
           <button
             type="submit"
             disabled={profileMutation.isPending || orderMutation.isPending}
-            className={`w-full py-3 px-6 rounded-xl font-medium text-white transition-all transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+            className={`w-full py-3 px-6 rounded-xl font-medium text-white transition-all transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 ${
               profileMutation.isPending || orderMutation.isPending
                 ? "bg-gray-300 cursor-not-allowed text-gray-500 shadow-none"
-                : "bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 shadow-lg hover:shadow-xl"
+                : "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-lg hover:shadow-xl"
             }`}
           >
             {profileMutation.isPending || orderMutation.isPending ? (
@@ -524,10 +578,10 @@ export const Ordershipping = () => {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                Placing Order...
+                Processing...
               </>
             ) : (
-              "Place Order"
+              "Proceed to Payment"
             )}
           </button>
         </form>

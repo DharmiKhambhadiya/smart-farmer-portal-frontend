@@ -1,50 +1,110 @@
-// src/components/Admin/AdminCrops.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DataTable from "react-data-table-component";
 import toast from "react-hot-toast";
-import { searchCrop, deleteCrop } from "../../compopnents/services/API/cropapi";
+import { searchCrop, deleteCrop } from "../../compopnents/services/API/cropapi"; // Fixed typo: compopnents -> components
 import { UpdateCrop } from "../../compopnents/Admin/UpdateCrop";
 import { AddCrop } from "../../compopnents/Admin/CreateCrop";
-import { PencilIcon, TrashIcon, PlusIcon } from "@heroicons/react/24/solid";
+import {
+  PencilIcon,
+  TrashIcon,
+  PlusIcon,
+  PhotoIcon,
+  TagIcon,
+  SunIcon,
+  ArrowPathIcon,
+  ExclamationCircleIcon,
+} from "@heroicons/react/24/outline";
+import { DeleteConfirmModal } from "../../compopnents/Admin/Deleteconfirmation";
 
-// Reuse consistent table styles from AdminUsers
+// Debounce hook
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
+// Custom styles for DataTable
 const customStyles = {
   tableWrapper: {
     style: {
-      borderRadius: "1rem",
+      borderRadius: "1.5rem",
       overflow: "hidden",
-      boxShadow: "0 4px 20px -2px rgba(0, 0, 0, 0.05)",
+      boxShadow:
+        "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+      border: "1px solid #e5e7eb",
+    },
+  },
+  head: {
+    style: {
+      backgroundColor: "#f9fafb",
+      fontWeight: "700",
+      color: "#1f2937",
+      fontSize: "0.875rem",
+      textTransform: "uppercase",
+      letterSpacing: "0.025em",
+      borderBottom: "2px solid #e5e7eb",
     },
   },
   headRow: {
     style: {
-      backgroundColor: "#f8fafc",
-      fontWeight: "600",
-      color: "#334155",
-      fontSize: "0.875rem",
-      textTransform: "uppercase",
-      letterSpacing: "0.05em",
+      minHeight: "56px",
     },
   },
   rows: {
     style: {
-      fontSize: "0.875rem",
-      color: "#1e293b",
+      fontSize: "0.95rem",
+      color: "#374151",
+      minHeight: "60px",
       "&:not(:last-of-type)": {
-        borderBottom: "1px solid #e2e8f0",
+        borderBottom: "1px solid #f3f4f6",
       },
     },
     highlightOnHoverStyle: {
-      backgroundColor: "#f1f5f9",
+      backgroundColor: "#f9fafb",
       cursor: "pointer",
+      transform: "translateY(-1px)",
+      transition: "all 0.2s ease-in-out",
     },
   },
   pagination: {
     style: {
-      padding: "1rem",
-      backgroundColor: "#f8fafc",
-      borderTop: "1px solid #e2e8f0",
+      padding: "1.25rem",
+      backgroundColor: "#ffffff",
+      borderTop: "1px solid #e5e7eb",
+      display: "flex",
+      justifyContent: "center",
+    },
+    pageButtonsStyle: {
+      borderRadius: "0.5rem",
+      height: "2.5rem",
+      width: "2.5rem",
+      padding: "0",
+      margin: "0 0.25rem",
+      backgroundColor: "transparent",
+      border: "1px solid #d1d5db",
+      color: "#4b5563",
+      "&:hover:not(:disabled)": {
+        backgroundColor: "#f3f4f6",
+        borderColor: "#9ca3af",
+      },
+      "&:focus": {
+        outline: "none",
+        backgroundColor: "#e5e7eb",
+      },
+      "&:disabled": {
+        color: "#9ca3af",
+      },
     },
   },
 };
@@ -53,15 +113,38 @@ export const AdminCrops = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editCropId, setEditCropId] = useState(null);
-  const [cropToDelete, setCropToDelete] = useState(null);
+  const [deleteCrop, setDeleteCrop] = useState(null);
 
   const queryClient = useQueryClient();
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  // Fetch crops with search & pagination
+  // Check admin access on mount
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const token = localStorage.getItem("token");
+    if (!token || !user?.role || user.role !== "admin") {
+      console.warn("Admin access check failed:", { token, user });
+      toast.error("❌ Access denied. Admins only.", {
+        duration: 5000,
+        icon: "🔒",
+      });
+      setTimeout(() => (window.location.href = "/login"), 1000);
+    } else {
+      console.log("Admin access verified:", {
+        userId: user.id,
+        role: user.role,
+      });
+    }
+  }, []);
+
+  // Reset to page 1 when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchTerm]);
+
   const {
     data: cropsResponse,
     isLoading,
@@ -70,94 +153,181 @@ export const AdminCrops = () => {
   } = useQuery({
     queryKey: [
       "crops",
-      { search: searchTerm, page: currentPage, limit: perPage },
+      { search: debouncedSearchTerm, page: currentPage, limit: perPage },
     ],
-    queryFn: () => searchCrop(searchTerm, currentPage, perPage),
-    select: (data) => ({
-      crops: data?.data || [],
-      totalPages: data?.totalpages || 1,
-      totalDocuments: data?.totaldocuments || 0,
-    }),
+    queryFn: () => searchCrop(debouncedSearchTerm, currentPage, perPage),
+    enabled: !!localStorage.getItem("token"),
+    select: (data) => {
+      if (data?.data === "No data" || !data?.data) {
+        return {
+          crops: [],
+          totalPages: 1,
+          totalDocuments: 0,
+        };
+      }
+      return {
+        crops: data?.data || [],
+        totalPages: data?.totalpages || 1,
+        totalDocuments: data?.totaldocuments || 0,
+      };
+    },
     staleTime: 5 * 60 * 1000,
     retry: (failureCount, error) => {
-      if (error?.response?.status >= 400 && error?.response?.status < 500) {
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false;
       }
       return failureCount < 3;
     },
     keepPreviousData: true,
+    onError: (err) => {
+      console.error("Query error:", {
+        status: err.response?.status,
+        message: err.response?.data?.message || err.message,
+      });
+      const errorMessage =
+        err.response?.data?.message || err.message || "Failed to load crops";
+      toast.error(`❌ ${errorMessage}`, {
+        duration: 4000,
+        icon: "❌",
+      });
+    },
   });
-
-  // Debug: Log the full API response
-  useEffect(() => {
-    console.log("Debug: Crops API Response:", cropsResponse);
-  }, [cropsResponse]);
 
   const crops = cropsResponse?.crops || [];
   const totalRows = cropsResponse?.totalDocuments || 0;
 
-  // Debug: Log the crops array before rendering DataTable
-  useEffect(() => {
-    console.log("Debug: Crops array for DataTable:", crops);
-  }, [crops]);
-
-  // Delete mutation (unchanged)
   const deleteMutation = useMutation({
-    mutationFn: (cropId) => deleteCrop(cropId),
+    mutationFn: (cropId) => {
+      console.log("MutationFn: Calling deleteCrop with ID:", cropId);
+      return deleteCrop(cropId);
+    },
     onMutate: async (cropId) => {
+      console.log("Mutating: Optimistically removing crop with ID:", cropId);
       await queryClient.cancelQueries({ queryKey: ["crops"] });
-      const previous = queryClient.getQueryData([
+      const queryKey = [
         "crops",
-        { search: searchTerm, page: currentPage, limit: perPage },
-      ]);
-      queryClient.setQueryData(
-        ["crops", { search: searchTerm, page: currentPage, limit: perPage }],
-        (old) => {
+        { search: debouncedSearchTerm, page: currentPage, limit: perPage },
+      ];
+      const previous = queryClient.getQueryData(queryKey);
+      if (previous) {
+        queryClient.setQueryData(queryKey, (old) => {
           if (!old?.crops) return old;
           return {
             ...old,
             crops: old.crops.filter((crop) => crop._id !== cropId),
             totalDocuments: Math.max(0, old.totalDocuments - 1),
           };
-        }
-      );
+        });
+      }
       return { previous };
     },
     onError: (err, cropId, context) => {
+      console.error("Delete mutation error for crop ID:", cropId, {
+        status: err.response?.status,
+        message: err.response?.data?.message || err.message,
+      });
       queryClient.setQueryData(
-        ["crops", { search: searchTerm, page: currentPage, limit: perPage }],
+        [
+          "crops",
+          { search: debouncedSearchTerm, page: currentPage, limit: perPage },
+        ],
         context.previous
       );
-      toast.error("Failed to delete crop");
+      const errorMessage =
+        err.response?.data?.message || err.message || "Failed to delete crop";
+      toast.error(`❌ ${errorMessage}`, {
+        duration: 5000,
+        icon: "❌",
+      });
     },
     onSuccess: () => {
-      toast.success("Crop deleted successfully 🌱");
-      setShowDeleteModal(false);
-      setCropToDelete(null);
+      console.log("Delete successful for crop:", deleteCrop?.name);
+      toast.success(
+        `✅ Crop "${deleteCrop?.name || "Unknown"}" deleted successfully! 🌱`,
+        {
+          duration: 3000,
+          icon: "🗑️",
+        }
+      );
+      setDeleteCrop(null);
+      const currentCrops = queryClient.getQueryData([
+        "crops",
+        { search: debouncedSearchTerm, page: currentPage, limit: perPage },
+      ])?.crops;
+      if (currentCrops?.length === 0 && currentPage > 1) {
+        setCurrentPage((prev) => prev - 1);
+      }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["crops"] });
+      console.log("Invalidating crops query after delete");
+      queryClient.invalidateQueries({
+        queryKey: ["crops"],
+        refetchType: "active",
+      });
     },
   });
 
-  // Handle functions (unchanged)
-  const handleDelete = (crop) => {
-    setCropToDelete(crop);
-    setShowDeleteModal(true);
+  const handleDeleteInitiate = (crop) => {
+    if (!crop?._id || !crop._id.match(/^[0-9a-fA-F]{24}$/)) {
+      console.error("Invalid crop ID for deletion:", crop?._id);
+      toast.error("❌ Invalid crop selected for deletion", {
+        duration: 5000,
+        icon: "❌",
+      });
+      return;
+    }
+    console.log("Initiating delete for crop:", crop);
+    toast("🗑️ Initiating crop deletion...", {
+      duration: 2000,
+      icon: "🗑️",
+    });
+    setDeleteCrop(crop);
   };
 
-  const confirmDelete = () => {
-    if (cropToDelete?._id) {
-      deleteMutation.mutate(cropToDelete._id);
+  const handleDeleteConfirm = async () => {
+    if (!deleteCrop?._id) {
+      console.error("No crop selected for deletion");
+      toast.error("❌ No crop selected for deletion", {
+        duration: 5000,
+        icon: "❌",
+      });
+      setDeleteCrop(null);
+      return;
+    }
+    console.log("Calling delete mutation for crop ID:", deleteCrop._id);
+    const loadingToast = toast.loading("Deleting crop...");
+    try {
+      await deleteMutation.mutateAsync(deleteCrop._id);
+    } catch (error) {
+      console.error("Delete confirm error:", {
+        status: error.response?.status,
+        message: error.message,
+      });
+      // Error is handled in useMutation's onError
+    } finally {
+      toast.dismiss(loadingToast);
     }
   };
 
-  const cancelDelete = () => {
-    setShowDeleteModal(false);
-    setCropToDelete(null);
+  const handleDeleteCancel = () => {
+    console.log("Delete cancelled for crop:", deleteCrop?.name);
+    toast("🛑 Deletion cancelled", {
+      duration: 2000,
+      icon: "🛑",
+    });
+    setDeleteCrop(null);
   };
 
   const handleEdit = (cropId) => {
+    if (!cropId.match(/^[0-9a-fA-F]{24}$/)) {
+      console.error("Invalid crop ID for edit:", cropId);
+      toast.error("❌ Invalid crop ID", {
+        duration: 5000,
+        icon: "❌",
+      });
+      return;
+    }
+    console.log("Initiating edit for crop ID:", cropId);
     setEditCropId(cropId);
     setShowEditModal(true);
   };
@@ -168,22 +338,30 @@ export const AdminCrops = () => {
   };
 
   const handleEditSuccess = () => {
-    toast.success("Crop updated successfully ✅");
+    toast.success("✅ Crop updated successfully! 🌿", {
+      duration: 3000,
+      icon: "✅",
+    });
     handleEditClose();
     queryClient.invalidateQueries({ queryKey: ["crops"] });
   };
 
   const handleEditError = (errorMessage) => {
-    toast.error(errorMessage || "Failed to update crop");
+    toast.error(`❌ ${errorMessage || "Failed to update crop"}`, {
+      duration: 5000,
+      icon: "❌",
+    });
   };
 
   const handleAddBtn = () => {
-    console.log("Debug: Add Crop button clicked");
     setShowAddModal(true);
   };
 
   const handleAddSuccess = () => {
-    toast.success("Crop added successfully 🌿");
+    toast.success("✅ New crop added successfully! 🌱", {
+      duration: 3000,
+      icon: "🌱",
+    });
     setShowAddModal(false);
     queryClient.invalidateQueries({ queryKey: ["crops"] });
     setCurrentPage(1);
@@ -191,157 +369,172 @@ export const AdminCrops = () => {
   };
 
   const handleAddError = (errorMessage) => {
-    toast.error(errorMessage || "Failed to add crop");
+    toast.error(`❌ ${errorMessage || "Failed to add crop"}`, {
+      duration: 5000,
+      icon: "❌",
+    });
   };
 
   const handleAddClose = () => {
     setShowAddModal(false);
   };
 
-  // Status badge helper (unchanged)
   const getSunExposureBadge = (exposure) => {
     switch (exposure) {
       case "Full Sun":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
       case "Partial Shade":
-        return "bg-cyan-100 text-cyan-800";
+        return "bg-cyan-100 text-cyan-800 border-cyan-200";
       case "Full Shade":
-        return "bg-green-100 text-green-800";
+        return "bg-green-100 text-green-800 border-green-200";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
-  // Columns for DataTable
-  const columns = [
-    {
-      name: "Image",
-      cell: (row) => {
-        // FIX: Safely access first image URL from array (like in AdminProducts)
-        const imageSrc =
-          row.imageUrl?.[0] ||
-          "https://dummyimage.com/40x40/cccccc/969696.png&text=No+Image";
+  const getSunExposureIcon = (exposure) => {
+    switch (exposure) {
+      case "Full Sun":
+        return <SunIcon className="w-3 h-3" />;
+      case "Partial Shade":
+        return <SunIcon className="w-3 h-3 opacity-70" />;
+      case "Full Shade":
+        return <SunIcon className="w-3 h-3 opacity-30" />;
+      default:
+        return <SunIcon className="w-3 h-3" />;
+    }
+  };
 
-        // Debug: Log the row data for each crop (refined to show actual attempted URL)
-        console.log(`Debug: Crop row data for ${row.name || "unknown"}:`, {
-          id: row._id,
-          name: row.name,
-          rawImageUrl: row.imageUrl, // Log raw value (e.g., array)
-          attemptedImageUrl: imageSrc, // Log what we're actually using
-        });
-
-        return (
-          <div className="h-10 w-10 rounded-md overflow-hidden bg-gray-100">
-            <img
-              src={imageSrc}
-              alt={row.name || "Crop Image"}
-              className="h-full w-full object-cover"
-              onError={(e) => {
-                // FIX: Use reliable placeholder in onError
-                const fallbackSrc =
-                  "https://dummyimage.com/40x40/cccccc/969696.png&text=No+Image";
-
-                // Debug: Log when an image fails to load (refined)
-                console.log(
-                  `Debug: Image load error for crop ${row.name || "unknown"}:`,
-                  {
-                    attemptedUrl: row.imageUrl?.[0] || "None (empty array)",
-                    rawImageUrlType: Array.isArray(row.imageUrl)
-                      ? "Array"
-                      : typeof row.imageUrl,
-                    error: e.message || "Image failed to load",
-                  }
-                );
-
-                e.target.src = fallbackSrc;
-              }}
-            />
-          </div>
-        );
+  const columns = useMemo(
+    () => [
+      {
+        name: "IMAGE",
+        cell: (row) => {
+          const imageSrc =
+            row.imageUrl?.[0] ||
+            "https://via.placeholder.com/40x40?text=No+Image";
+          return (
+            <div className="w-10 h-10 rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-50 flex items-center justify-center">
+              {row.imageUrl?.[0] ? (
+                <img
+                  src={imageSrc}
+                  alt={row.name || "Crop Image"}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.src =
+                      "https://via.placeholder.com/40x40?text=No+Image";
+                  }}
+                />
+              ) : (
+                <PhotoIcon className="w-5 h-5 text-gray-400" />
+              )}
+            </div>
+          );
+        },
+        width: "80px",
+        center: true,
       },
-      width: "80px",
-      center: true,
-    },
-    // Other columns unchanged...
-    {
-      name: "Name",
-      selector: (row) => row.name,
-      sortable: true,
-      grow: 2,
-      wrap: true,
-    },
-    {
-      name: "Category",
-      selector: (row) => row.category,
-      sortable: true,
-      cell: (row) => (
-        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-          {row.category}
-        </span>
-      ),
-      center: true,
-    },
-    {
-      name: "Plant Type",
-      selector: (row) => row.plantType || "N/A",
-      sortable: true,
-    },
-    {
-      name: "Sun Exposure",
-      selector: (row) => row.sunExposure || "N/A",
-      sortable: true,
-      cell: (row) => (
-        <span
-          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getSunExposureBadge(
-            row.sunExposure
-          )}`}
-        >
-          {row.sunExposure || "N/A"}
-        </span>
-      ),
-      center: true,
-    },
-    {
-      name: "Actions",
-      cell: (row) => (
-        <div className="flex gap-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEdit(row._id);
-            }}
-            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
-            title="Edit Crop"
+      {
+        name: "NAME",
+        selector: (row) => row.name,
+        sortable: true,
+        grow: 2,
+        cell: (row) => (
+          <div className="font-medium text-gray-900 truncate max-w-[150px]">
+            {row.name}
+          </div>
+        ),
+      },
+      {
+        name: "CATEGORY",
+        selector: (row) => row.category,
+        sortable: true,
+        cell: (row) => (
+          <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+            <TagIcon className="w-3 h-3 mr-1" />
+            {row.category}
+          </span>
+        ),
+        center: true,
+        grow: 1.5,
+      },
+      {
+        name: "PLANT TYPE",
+        selector: (row) => row.plantType || "N/A",
+        sortable: true,
+        cell: (row) => (
+          <div className="text-sm text-gray-600 truncate max-w-[120px]">
+            {row.plantType || "N/A"}
+          </div>
+        ),
+        grow: 2,
+      },
+      {
+        name: "SUN EXPOSURE",
+        selector: (row) => row.sunExposure || "N/A",
+        sortable: true,
+        cell: (row) => (
+          <span
+            className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full border ${getSunExposureBadge(
+              row.sunExposure
+            )}`}
           >
-            <PencilIcon className="w-5 h-5" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDelete(row);
-            }}
-            disabled={deleteMutation.isPending}
-            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Delete Crop"
-          >
-            <TrashIcon className="w-5 h-5" />
-          </button>
-        </div>
-      ),
-      ignoreRowClick: true,
-      allowOverflow: true,
-      button: true,
-      center: true,
-    },
-  ];
+            {getSunExposureIcon(row.sunExposure)}
+            <span className="ml-1">{row.sunExposure || "N/A"}</span>
+          </span>
+        ),
+        center: true,
+        grow: 1.5,
+      },
+      {
+        name: "ACTIONS",
+        cell: (row) => (
+          <div className="flex gap-2 justify-center">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEdit(row._id);
+              }}
+              className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-200 hover:shadow-md"
+              title="Edit Crop"
+            >
+              <PencilIcon className="w-5 h-5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteInitiate(row);
+              }}
+              disabled={deleteMutation.isPending}
+              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Delete Crop"
+            >
+              <TrashIcon className="w-5 h-5" />
+            </button>
+          </div>
+        ),
+        ignoreRowClick: true,
+        allowOverflow: true,
+        button: true,
+        center: true,
+        grow: 1,
+      },
+    ],
+    [deleteMutation.isPending]
+  );
 
-  // Loading and Error states (unchanged, but debug log refined)
   if (isLoading) {
     return (
-      <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
         <div className="max-w-7xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+              Manage Crops
+            </h1>
+            <p className="text-gray-600 mt-1">Loading your crops...</p>
+          </div>
           <div className="flex justify-center items-center py-32">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-green-600 border-t-transparent"></div>
             <span className="ml-4 text-gray-600 text-lg">Loading crops...</span>
           </div>
         </div>
@@ -350,29 +543,13 @@ export const AdminCrops = () => {
   }
 
   if (error) {
-    // Debug: Log the error details (refined)
-    console.log("Debug: Error loading crops:", {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-    });
     return (
-      <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
         <div className="max-w-7xl mx-auto">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
-            <svg
-              className="mx-auto h-16 w-16 text-red-500 mb-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.034 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+              <ExclamationCircleIcon className="w-8 h-8 text-red-600" />
+            </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">
               Error loading crops
             </h3>
@@ -381,8 +558,9 @@ export const AdminCrops = () => {
               onClick={() =>
                 queryClient.invalidateQueries({ queryKey: ["crops"] })
               }
-              className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+              className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 hover:shadow-lg flex items-center gap-2 mx-auto"
             >
+              <ArrowPathIcon className="w-5 h-5" />
               Retry
             </button>
           </div>
@@ -392,12 +570,11 @@ export const AdminCrops = () => {
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
       <div className="max-w-7xl mx-auto">
-        {/* Header (unchanged) */}
-        <div className="mb-8 flex justify-between items-center">
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-extrabold text-gray-800">
+            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
               Manage Crops
             </h1>
             <p className="text-gray-600 mt-1">
@@ -406,37 +583,79 @@ export const AdminCrops = () => {
                 : "No crops found"}
             </p>
           </div>
-          <div className="mb-6">
-            <button
-              type="button"
-              onClick={handleAddBtn}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200"
-            >
-              Add Crop
-            </button>
+          <button
+            type="button"
+            onClick={handleAddBtn}
+            className="px-5 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 hover:shadow-lg flex items-center gap-2"
+          >
+            <PlusIcon className="w-5 h-5" />
+            Add Crop
+          </button>
+        </div>
+
+        <div className="mb-6">
+          <div className="relative max-w-md">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <PhotoIcon className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search by name or category..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+              }}
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 bg-white"
+            />
+            {isFetching && debouncedSearchTerm && (
+              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-green-600 border-t-transparent"></div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Search Bar (unchanged) */}
-        <div className="mb-6">
-          <input
-            type="text"
-            placeholder="Search by name or category..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full sm:w-1/2 px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
-          />
-        </div>
+        {totalRows > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Total Crops</p>
+                <p className="text-2xl font-bold text-gray-900">{totalRows}</p>
+              </div>
+              <PhotoIcon className="w-8 h-8 text-green-600" />
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Categories</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {new Set(crops.map((crop) => crop.category)).size}
+                </p>
+              </div>
+              <TagIcon className="w-8 h-8 text-blue-600" />
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Sun Types</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {new Set(crops.map((crop) => crop.sunExposure)).size}
+                </p>
+              </div>
+              <SunIcon className="w-8 h-8 text-yellow-600" />
+            </div>
+          </div>
+        )}
 
-        {/* Crops Table (unchanged except for columns above) */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
           <DataTable
             columns={columns}
             data={crops}
-            progressPending={isLoading || isFetching}
+            progressPending={isLoading || (isFetching && !isLoading)}
+            progressComponent={
+              <div className="p-8 text-center">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-green-600 border-t-transparent"></div>
+                <p className="mt-2 text-gray-600">Loading crops...</p>
+              </div>
+            }
             pagination
             paginationServer
             paginationTotalRows={totalRows}
@@ -450,76 +669,55 @@ export const AdminCrops = () => {
             pointerOnHover
             customStyles={customStyles}
             noDataComponent={
-              <div className="p-8 text-center text-gray-500">
-                {searchTerm ? "No crops match your search." : "No crops found."}
+              <div className="p-12 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                  <PhotoIcon className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {searchTerm
+                    ? `No crops found for "${searchTerm}"`
+                    : "No crops found"}
+                </h3>
+                <p className="text-gray-500">
+                  {searchTerm
+                    ? "Try adjusting your search terms."
+                    : "Crops will appear here once added."}
+                </p>
+                {!searchTerm && (
+                  <button
+                    onClick={handleAddBtn}
+                    className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 mx-auto"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    Add Your First Crop
+                  </button>
+                )}
               </div>
             }
           />
         </div>
+
+        <UpdateCrop
+          isOpen={showEditModal}
+          onClose={handleEditClose}
+          cropId={editCropId}
+          onSuccess={handleEditSuccess}
+          onError={handleEditError}
+        />
+        <AddCrop
+          isOpen={showAddModal}
+          onClose={handleAddClose}
+          onSuccess={handleAddSuccess}
+          onError={handleAddError}
+        />
+        <DeleteConfirmModal
+          isOpen={!!deleteCrop}
+          onClose={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          itemName={deleteCrop?.name || ""}
+          itemType="Crop"
+        />
       </div>
-
-      {/* Modals (unchanged) */}
-      <UpdateCrop
-        isOpen={showEditModal}
-        onClose={handleEditClose}
-        cropId={editCropId}
-        onSuccess={handleEditSuccess}
-        onError={handleEditError}
-      />
-
-      <AddCrop
-        isOpen={showAddModal}
-        onClose={handleAddClose}
-        onSuccess={handleAddSuccess}
-        onError={handleAddError}
-      />
-
-      {/* Delete Confirmation Modal (unchanged) */}
-      {showDeleteModal && cropToDelete && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div
-            className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 mb-4">
-                <TrashIcon className="h-6 w-6 text-red-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Delete Crop?
-              </h3>
-              <p className="text-gray-600 mb-6">
-                Are you sure you want to delete{" "}
-                <span className="font-medium">"{cropToDelete.name}"</span>? This
-                action cannot be undone.
-              </p>
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={cancelDelete}
-                  disabled={deleteMutation.isPending}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmDelete}
-                  disabled={deleteMutation.isPending}
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50 flex items-center gap-2"
-                >
-                  {deleteMutation.isPending ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                      Deleting...
-                    </>
-                  ) : (
-                    "Delete"
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

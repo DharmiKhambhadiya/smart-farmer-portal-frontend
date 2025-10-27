@@ -3,17 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Getprofile, updateProfile } from "../services/API/userapi";
 import { useEffect } from "react";
 import { toast } from "react-toastify";
+import { useUserContext } from "../context/Usercontext";
 
 export const MyAddress = () => {
   const queryClient = useQueryClient();
+  const { userData, setUserData, isLoading } = useUserContext();
 
-  // Fetch profile
-  const { data: user, isLoading } = useQuery({
-    queryKey: ["profile"],
-    queryFn: Getprofile,
-  });
-
-  // RHF Form Setup
   const {
     register,
     handleSubmit,
@@ -31,22 +26,20 @@ export const MyAddress = () => {
     },
   });
 
-  // Reset form when user data loads
   useEffect(() => {
-    if (user) {
+    if (userData) {
       reset({
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
-        street: user.address?.street || "",
-        city: user.address?.city || "",
-        state: user.address?.state || "",
-        pincode: user.address?.pincode || "",
-        country: user.address?.country || "",
+        firstName: userData.firstName || "",
+        lastName: userData.lastName || "",
+        street: userData.address?.street || "",
+        city: userData.address?.city || "",
+        state: userData.address?.state || "",
+        pincode: userData.address?.pincode || "",
+        country: userData.address?.country || "",
       });
     }
-  }, [user, reset]);
+  }, [userData, reset]);
 
-  // Mutation to update profile
   const mutation = useMutation({
     mutationFn: (data) =>
       updateProfile({
@@ -60,8 +53,14 @@ export const MyAddress = () => {
           country: data.country,
         },
       }),
-    onSuccess: () => {
+    onSuccess: (updatedData) => {
       queryClient.invalidateQueries(["profile"]);
+      setUserData((prev) => ({
+        ...prev,
+        firstName: updatedData.firstName || prev.firstName,
+        lastName: updatedData.lastName || prev.lastName,
+        address: updatedData.address || prev.address,
+      }));
       toast.success("✅ Address updated successfully!");
     },
     onError: (error) => {
@@ -82,7 +81,6 @@ export const MyAddress = () => {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 py-8 px-4 md:px-8">
       {/* Decorative background elements */}

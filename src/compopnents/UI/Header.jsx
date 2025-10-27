@@ -32,7 +32,7 @@ export const Header = () => {
             alt="Smart Farmer Logo"
             className="w-12 h-12 object-contain rounded-full shadow-glow transition-all duration-300 group-hover:shadow-accent/50"
           />
-          <span className="text-2xl font-bold text-black">SMART FARMER</span>
+          {/* <span className="text-2xl font-bold text-black">SMART FARMER</span> */}
         </div>
 
         {/* Navigation */}
@@ -55,12 +55,12 @@ export const Header = () => {
           })}
 
           {/* Blog Link */}
-          <div
+          {/* <div
             onClick={() => window.open("https://blog-nest-eta.vercel.app/")}
             className="cursor-pointer text-black hover:text-accent transition-all duration-300"
           >
             Blog
-          </div>
+          </div> */}
 
           {/* Action Icons */}
           <div className="flex items-center gap-4 ml-4 border-l border-primary-light/30 pl-4">

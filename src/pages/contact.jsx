@@ -1,14 +1,15 @@
+// components/Contact.jsx
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Newrequest } from "../compopnents/services/API/contactapi";
 import { toast } from "react-hot-toast";
 
 export const Contact = () => {
-  const [formdata, setformdata] = useState({
+  const [formdata, setFormdata] = useState({
     name: "",
     email: "",
     phonenumber: "",
-    subject: "",
+    subject: "", // Added subject field
     message: "",
   });
 
@@ -16,7 +17,7 @@ export const Contact = () => {
     mutationFn: Newrequest,
     onSuccess: (data) => {
       toast.success(data?.message || "Request submitted successfully!");
-      setformdata({
+      setFormdata({
         name: "",
         email: "",
         phonenumber: "",
@@ -25,18 +26,19 @@ export const Contact = () => {
       });
     },
     onError: (error) => {
-      toast.error(error?.response?.data?.message || error.message);
+      console.error("❌ Contact form error:", error);
+      toast.error(error?.response?.data?.message || "Failed to submit request");
     },
   });
 
-  const handlechange = (e) => {
-    setformdata({ ...formdata, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    setFormdata({ ...formdata, [e.target.name]: e.target.value });
   };
 
-  const handlesubmit = (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (!formdata.name || !formdata.email || !formdata.message) {
-      toast.error("Please fill in all required fields.");
+      toast.error("Please fill in all required fields (name, email, message).");
       return;
     }
     mutate(formdata);
@@ -54,8 +56,6 @@ export const Contact = () => {
             Whether you have questions, feedback, or need support — we’re always
             here to help you on your farming journey.
           </p>
-
-          {/* Decorative circles */}
           <div className="absolute top-8 left-8 w-20 h-20 bg-emerald-200 rounded-full opacity-30 blur-2xl"></div>
           <div className="absolute bottom-8 right-8 w-24 h-24 bg-blue-200 rounded-full opacity-30 blur-2xl"></div>
         </div>
@@ -67,7 +67,7 @@ export const Contact = () => {
             Fill out the form and our team will get back to you shortly.
           </p>
 
-          <form onSubmit={handlesubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Name */}
             <div>
               <label
@@ -81,7 +81,7 @@ export const Contact = () => {
                 type="text"
                 name="name"
                 value={formdata.name}
-                onChange={handlechange}
+                onChange={handleChange}
                 placeholder="John Doe"
                 required
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
@@ -101,7 +101,7 @@ export const Contact = () => {
                 type="email"
                 name="email"
                 value={formdata.email}
-                onChange={handlechange}
+                onChange={handleChange}
                 placeholder="you@example.com"
                 required
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
@@ -121,8 +121,27 @@ export const Contact = () => {
                 type="tel"
                 name="phonenumber"
                 value={formdata.phonenumber}
-                onChange={handlechange}
+                onChange={handleChange}
                 placeholder="+1 (555) 123-4567"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+              />
+            </div>
+
+            {/* Subject */}
+            <div>
+              <label
+                htmlFor="subject"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Subject (Optional)
+              </label>
+              <input
+                id="subject"
+                type="text"
+                name="subject"
+                value={formdata.subject}
+                onChange={handleChange}
+                placeholder="Your query subject"
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
               />
             </div>
@@ -139,7 +158,7 @@ export const Contact = () => {
                 id="message"
                 name="message"
                 value={formdata.message}
-                onChange={handlechange}
+                onChange={handleChange}
                 placeholder="Tell us how we can assist you..."
                 rows="4"
                 required

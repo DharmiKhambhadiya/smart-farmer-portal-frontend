@@ -1,10 +1,10 @@
-import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createProduct } from "../../compopnents/services/API/productapi";
+import { createProduct } from "../services/API/productapi";
 import { XMarkIcon, CheckIcon } from "@heroicons/react/24/solid";
 import toast from "react-hot-toast";
+import { useState } from "react";
 
-export const CreateProduct = ({ isOpen, onClose, onCreate }) => {
+export const CreateProduct = ({ isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     name: "",
     stock: 0,
@@ -23,15 +23,21 @@ export const CreateProduct = ({ isOpen, onClose, onCreate }) => {
 
   const createProductMutation = useMutation({
     mutationFn: (productData) => createProduct(productData),
-    onSuccess: () => {
-      toast.success("✅ Product created successfully!");
-      onCreate();
+    onMutate: () => {
+      return toast.loading("Creating product...");
+    },
+    onSuccess: (data, variables, context) => {
+      toast.dismiss(context);
+      toast.success("✅ Product created successfully!", { duration: 3000 });
+      onSuccess();
       onClose();
       queryClient.invalidateQueries({ queryKey: ["products"] });
     },
-    onError: (err) => {
+    onError: (err, variables, context) => {
+      toast.dismiss(context);
       toast.error(
-        `❌ ${err.response?.data?.message || "Failed to create product"}`
+        `❌ ${err.response?.data?.message || "Failed to create product"}`,
+        { duration: 5000 }
       );
     },
   });
@@ -46,6 +52,7 @@ export const CreateProduct = ({ isOpen, onClose, onCreate }) => {
       newErrors.description = "Description is required";
     if (!formData.price || formData.price <= 0)
       newErrors.price = "Valid price is required";
+    if (formData.stock < 0) newErrors.stock = "Stock cannot be negative";
     if (newImages.length === 0)
       newErrors.images = "At least one image is required";
     if (newImages.length > 5) newErrors.images = "Maximum 5 images allowed";
@@ -92,7 +99,7 @@ export const CreateProduct = ({ isOpen, onClose, onCreate }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!validateForm()) {
-      toast.error("Please fix the errors below ⚠️");
+      toast.error("Please fix the errors below ⚠️", { duration: 4000 });
       return;
     }
 

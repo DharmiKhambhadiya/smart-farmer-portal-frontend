@@ -26,6 +26,8 @@ import { AdminQueries } from "./pages/Admin pages/AdminQueries";
 import { Dashboard } from "./pages/Admin pages/dashboard";
 import { AdminCrops } from "./pages/Admin pages/Admincrops";
 import { AdminHome } from "./pages/Admin pages/AdminHome";
+import { PrivacyPolicy } from "./pages/PrivacyandPolicy";
+import { TermsOfService } from "./pages/TermOfServices";
 
 function App() {
   const layout = createBrowserRouter([
@@ -47,6 +49,8 @@ function App() {
         { path: "/reset-password/:token", element: <ResetPasswordPage /> },
         { path: "/account", element: <Account /> },
         { path: "/payment", element: <Payment /> },
+        { path: "/privacy", element: <PrivacyPolicy /> },
+        { path: "/services", element: <TermsOfService /> },
         {
           path: "/shipping",
           element: (

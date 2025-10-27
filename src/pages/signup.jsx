@@ -1,77 +1,99 @@
-import { useState } from "react";
-import { Register } from "../compopnents/services/API/userapi";
+import { useForm } from "react-hook-form";
 import { useMutation } from "@tanstack/react-query";
+import { Register } from "../compopnents/services/API/userapi";
 import { Validation } from "../compopnents/services/validation/uservalidation";
-import toast from "react-hot-toast";
+import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 export const Signup = () => {
-  const [formdata, setFormdata] = useState({ email: "", password: "" });
-  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+  const [showPassword, setShowPassword] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm({
+    defaultValues: {
+      email: "",
+      password: "",
+      firstName: "",
+    },
+  });
 
-  const { mutate, isLoading, isError, error } = useMutation({
+  const password = watch("password");
+  const mutation = useMutation({
     mutationFn: Register,
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       toast.success(
-        "OTP sent to your email! Please verify to complete registration."
+        "✅ OTP sent to your email! Please verify to complete registration.",
+        {
+          duration: 3000,
+        }
       );
-      navigate("/verify-otp", { state: { email: formdata.email } });
+      navigate("/verify-otp", { state: { email: variables.email } });
     },
     onError: (error) => {
       const errorMessage =
         error.response?.data?.message || "Registration failed";
       if (errorMessage.includes("OTP already sent")) {
         toast.success(
-          "OTP already sent to your email! Redirecting to verification..."
+          "✅ OTP already sent to your email! Redirecting to verification...",
+          { duration: 3000 }
         );
         setTimeout(() => {
-          navigate("/verify-otp", { state: { email: formdata.email } });
+          navigate("/verify-otp", {
+            state: { email: error.response?.data?.email },
+          });
         }, 2000);
+      } else if (errorMessage.includes("User already exists")) {
+        toast.error(`❌ Email: ${errorMessage}`, { duration: 5000 });
       } else {
-        toast.error(errorMessage);
+        toast.error(`❌ Registration: ${errorMessage}`, { duration: 5000 });
       }
     },
   });
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormdata((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
+  const onSubmit = (data) => {
+    const loadingToast = toast.loading("Processing registration...");
     try {
-      Validation(formdata);
-      mutate(formdata);
+      Validation(data); // Custom validation
+      mutation.mutate(data, {
+        onSettled: () => toast.dismiss(loadingToast),
+      });
     } catch (validationError) {
-      toast.error(validationError.message);
+      toast.dismiss(loadingToast);
+      const field = validationError.message.includes("email")
+        ? "Email"
+        : validationError.message.includes("password")
+        ? "Password"
+        : validationError.message.includes("firstName")
+        ? "First Name"
+        : "Form";
+      toast.error(`❌ ${field}: ${validationError.message}`, {
+        duration: 5000,
+      });
     }
   };
 
   // Password strength helper
   const getPasswordStrength = () => {
-    const length = formdata.password.length >= 8;
-    const hasUpper = /[A-Z]/.test(formdata.password);
-    const hasLower = /[a-z]/.test(formdata.password);
-    const hasNumber = /\d/.test(formdata.password);
-    const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(
-      formdata.password
-    );
-
-    const score = [length, hasUpper, hasLower, hasNumber, hasSymbol].filter(
+    const length = password.length >= 8;
+    const hasUpper = /[A-Z]/.test(password);
+    const hasLower = /[a-z]/.test(password);
+    const hasNumber = /\d/.test(password);
+    const hasSymbol = /[!@#$%^&*()_+\-=$$  $${};':"\\|,.<>\/?]/.test(password);
+    return [length, hasUpper, hasLower, hasNumber, hasSymbol].filter(
       (cond) => cond
     ).length;
-
-    return score;
   };
 
   const strengthColor = (score) => {
     if (score === 0) return "hidden";
     if (score <= 2) return "text-red-500";
     if (score === 3) return "text-yellow-500";
-    if (score >= 4) return "text-green-500";
+    if (score >= 4) return "text-emerald-500";
   };
 
   const strengthText = (score) => {
@@ -84,7 +106,6 @@ export const Signup = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-slate-50 to-blue-50 p-6 md:p-12">
       <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-2">
-        {/* Left Side: Attractive Text */}
         <div className="flex flex-col justify-center p-10 bg-gradient-to-br from-emerald-100 via-blue-50 to-slate-100 relative">
           <h1 className="text-4xl md:text-5xl font-extrabold text-gray-800 leading-tight mb-3">
             Join Our <span className="text-emerald-600">Community</span>
@@ -93,23 +114,80 @@ export const Signup = () => {
             Start your farming journey with expert insights, crop management
             tools, and a community dedicated to sustainable agriculture.
           </p>
-
-          {/* Decorative circles */}
           <div className="absolute top-8 left-8 w-20 h-20 bg-emerald-200 rounded-full opacity-30 blur-2xl"></div>
           <div className="absolute bottom-8 right-8 w-24 h-24 bg-blue-200 rounded-full opacity-30 blur-2xl"></div>
         </div>
 
-        {/* Right Side: Signup Form */}
         <div className="p-6 md:p-8">
           <h2 className="text-xl font-bold text-gray-800 mb-1">
             Create Account
           </h2>
           <p className="text-sm text-gray-600 mb-6">
-            Sign up with your email and create a secure password.
+            Sign up with your name, email, and a secure password.
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email Field */}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div>
+              <label
+                htmlFor="firstName"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                First Name *
+              </label>
+              <div className="relative">
+                <input
+                  id="firstName"
+                  type="text"
+                  {...register("firstName", {
+                    required: "First Name is required",
+                    minLength: {
+                      value: 2,
+                      message: "First Name must be at least 2 characters",
+                    },
+                  })}
+                  placeholder="John"
+                  className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:outline-none transition ${
+                    errors.firstName
+                      ? "border-red-500 bg-red-50"
+                      : "border-gray-300 focus:ring-emerald-500"
+                  }`}
+                />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                  />
+                </svg>
+              </div>
+              {errors.firstName && (
+                <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  {errors.firstName.message}
+                </p>
+              )}
+            </div>
+
             <div>
               <label
                 htmlFor="email"
@@ -121,12 +199,19 @@ export const Signup = () => {
                 <input
                   id="email"
                   type="email"
-                  name="email"
-                  value={formdata.email}
-                  onChange={handleChange}
+                  {...register("email", {
+                    required: "Email is required",
+                    pattern: {
+                      value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                      message: "Enter a valid email address",
+                    },
+                  })}
                   placeholder="you@example.com"
-                  required
-                  className="w-full px-3 py-2.5 pr-10 border rounded-lg focus:ring-2 focus:outline-none transition border-gray-300 focus:ring-emerald-500"
+                  className={`w-full px-3 py-2.5 pr-10 border rounded-lg focus:ring-2 focus:outline-none transition ${
+                    errors.email
+                      ? "border-red-500 bg-red-50"
+                      : "border-gray-300 focus:ring-emerald-500"
+                  }`}
                 />
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -143,9 +228,27 @@ export const Signup = () => {
                   />
                 </svg>
               </div>
+              {errors.email && (
+                <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  {errors.email.message}
+                </p>
+              )}
             </div>
 
-            {/* Password Field */}
             <div>
               <label
                 htmlFor="password"
@@ -157,12 +260,25 @@ export const Signup = () => {
                 <input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  name="password"
-                  value={formdata.password}
-                  onChange={handleChange}
+                  {...register("password", {
+                    required: "Password is required",
+                    minLength: {
+                      value: 8,
+                      message: "Password must be at least 8 characters",
+                    },
+                    pattern: {
+                      value:
+                        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=$$  $${};':"\\|,.<>\/?]).{8,}$/,
+                      message:
+                        "Password must include uppercase, lowercase, number, and symbol",
+                    },
+                  })}
                   placeholder="••••••••"
-                  required
-                  className="w-full px-3 py-2.5 pr-10 border rounded-lg focus:ring-2 focus:outline-none transition border-gray-300 focus:ring-emerald-500"
+                  className={`w-full px-3 py-2.5 pr-10 border rounded-lg focus:ring-2 focus:outline-none transition ${
+                    errors.password
+                      ? "border-red-500 bg-red-50"
+                      : "border-gray-300 focus:ring-emerald-500"
+                  }`}
                 />
                 <button
                   type="button"
@@ -209,9 +325,26 @@ export const Signup = () => {
                   )}
                 </button>
               </div>
-
-              {/* Password Strength Indicator */}
-              {formdata.password.length > 0 && (
+              {errors.password && (
+                <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  {errors.password.message}
+                </p>
+              )}
+              {password.length > 0 && (
                 <div className="mt-2">
                   <div className="flex justify-between text-xs text-gray-500 mb-1">
                     <span>Password Strength</span>
@@ -231,32 +364,29 @@ export const Signup = () => {
                           : getPasswordStrength() === 3
                           ? "w-3/5 bg-yellow-500"
                           : getPasswordStrength() === 4
-                          ? "w-4/5 bg-green-500"
-                          : "w-full bg-green-500"
+                          ? "w-4/5 bg-emerald-500"
+                          : "w-full bg-emerald-500"
                       }`}
                     ></div>
                   </div>
                 </div>
               )}
-
-              {/* Password Requirements */}
               <p className="mt-2 text-xs text-gray-500">
                 Must be at least 8 characters with uppercase, lowercase, number,
                 and symbol.
               </p>
             </div>
 
-            {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={mutation.isPending}
               className={`w-full py-2.5 px-5 rounded-lg font-medium text-white transition-all ${
-                isLoading
+                mutation.isPending
                   ? "bg-gray-300 cursor-not-allowed text-gray-600"
                   : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-md hover:shadow-lg transform hover:scale-[1.02]"
               }`}
             >
-              {isLoading ? (
+              {mutation.isPending ? (
                 <>
                   <svg
                     className="animate-spin -ml-1 mr-2 h-4 w-4 inline"
@@ -285,7 +415,6 @@ export const Signup = () => {
               )}
             </button>
 
-            {/* Login Link */}
             <div className="text-center">
               <p className="text-sm text-gray-600">
                 Already have an account?{" "}
@@ -300,7 +429,6 @@ export const Signup = () => {
             </div>
           </form>
 
-          {/* Footer */}
           <p className="text-center text-xs text-gray-400 mt-4">
             By signing up, you agree to our{" "}
             <a href="#" className="hover:text-emerald-600 underline">

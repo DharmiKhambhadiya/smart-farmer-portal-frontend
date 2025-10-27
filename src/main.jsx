@@ -8,17 +8,18 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import CartcontextProvider from "./compopnents/context/cartcontext.jsx";
 import { AuthProvider } from "./compopnents/context/authcontext.jsx";
+import { UserProvider } from "./compopnents/context/Usercontext.jsx";
 
 const queryclient = new QueryClient();
 createRoot(document.getElementById("root")).render(
-  <StrictMode>
-    <QueryClientProvider client={queryclient}>
-      <CartcontextProvider>
+  <QueryClientProvider client={queryclient}>
+    <CartcontextProvider>
+      <UserProvider>
         <AuthProvider>
           <App />
           <Toaster />
         </AuthProvider>
-      </CartcontextProvider>
-    </QueryClientProvider>
-  </StrictMode>
+      </UserProvider>
+    </CartcontextProvider>
+  </QueryClientProvider>
 );

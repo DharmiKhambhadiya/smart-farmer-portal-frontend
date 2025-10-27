@@ -1,13 +1,10 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  getProduct,
-  updateproducts,
-} from "../../compopnents/services/API/productapi";
+import { getProduct, updateproducts } from "../services/API/productapi";
 import { XMarkIcon, CheckIcon } from "@heroicons/react/24/solid";
 import toast from "react-hot-toast";
 
-export const UpdateProduct = ({ productId, isOpen, onClose, onUpdate }) => {
+export const UpdateProduct = ({ productId, isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     name: "",
     stock: 0,
@@ -39,16 +36,22 @@ export const UpdateProduct = ({ productId, isOpen, onClose, onUpdate }) => {
 
   const updateProductMutation = useMutation({
     mutationFn: (productData) => updateproducts(productId, productData),
-    onSuccess: () => {
-      toast.success("✅ Product updated successfully!");
-      onUpdate();
+    onMutate: () => {
+      return toast.loading("Updating product...");
+    },
+    onSuccess: (data, variables, context) => {
+      toast.dismiss(context);
+      toast.success("✅ Product updated successfully!", { duration: 3000 });
+      onSuccess();
       onClose();
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["product", productId] });
     },
-    onError: (err) => {
+    onError: (err, variables, context) => {
+      toast.dismiss(context);
       toast.error(
-        `❌ ${err.response?.data?.message || "Failed to update product"}`
+        `❌ ${err.response?.data?.message || "Failed to update product"}`,
+        { duration: 5000 }
       );
     },
   });
@@ -67,9 +70,29 @@ export const UpdateProduct = ({ productId, isOpen, onClose, onUpdate }) => {
         bestSeller: product.bestSeller || false,
       });
       setExistingImages(product.images || []);
+      setNewImages([]);
       setErrors({});
     }
   }, [product, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setFormData({
+        name: "",
+        stock: 0,
+        subtitle: "",
+        categories: "",
+        brand: "",
+        description: "",
+        madeIn: "",
+        price: 0,
+        bestSeller: false,
+      });
+      setNewImages([]);
+      setExistingImages([]);
+      setErrors({});
+    }
+  }, [isOpen]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -81,6 +104,7 @@ export const UpdateProduct = ({ productId, isOpen, onClose, onUpdate }) => {
       newErrors.description = "Description is required";
     if (!formData.price || formData.price <= 0)
       newErrors.price = "Valid price is required";
+    if (formData.stock < 0) newErrors.stock = "Stock cannot be negative";
     if (existingImages.length + newImages.length === 0)
       newErrors.images = "At least one image is required";
     if (existingImages.length + newImages.length > 5)
@@ -132,7 +156,7 @@ export const UpdateProduct = ({ productId, isOpen, onClose, onUpdate }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!validateForm()) {
-      toast.error("Please fix the errors below ⚠️");
+      toast.error("Please fix the errors below ⚠️", { duration: 4000 });
       return;
     }
 
